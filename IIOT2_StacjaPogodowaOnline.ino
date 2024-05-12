@@ -1,10 +1,14 @@
 #include "M5Core2.h"
 #include "M5_ENV.h"
 #include "math.h"
+#include "WiFi.h"
 SHT3X sht30;
 QMP6988 qmp6988;
+WiFiClient espClient;
 RTC_TimeTypeDef RTCTime;
 RTC_DateTypeDef RTCDate;
+const char* ssid = "ssid";
+const char* password = "tajne";
 int menu_stan=1; // Display page
 int pomiary_stan=0;
 char disp_refresh=1; // Display refresh
@@ -18,6 +22,7 @@ int prevBound;
 int focus;
 bool error;
 bool reset_confirm;
+bool is_connected;
 //tablice z danymi historycznymi
 int n_hours = 0;
 int n_temps = 0;
@@ -34,6 +39,7 @@ int* pressures; //ciśnienia z trzech ostatnich dni
 int* humidities; //wilgotności z trzech ostatnich dni
 int* hours; //godziny pomiarów
 
+void setupWifi();
 int getPressure();
 float getTemperature();
 int getHumidity();
@@ -48,7 +54,7 @@ int getDay();
 int getHours();
 int getMinutes();
 int getSeconds();
-void showBatteryLevel();
+void showBatteryLevelAndNetworkStatus();
 void readHours();
 void readTemps();
 void readPressures();
@@ -138,12 +144,16 @@ void setup() {
   // put your setup code here, to run once:
   Wire.begin(); // Wire init, adding the I2C bus.
   M5.begin();
-  M5.Axp.SetSpkEnable(0);
+  
   M5.Lcd.setTextColor(WHITE);
   M5.Lcd.setTextDatum(MC_DATUM);
   M5.Lcd.setTextSize(3);
   M5.Lcd.drawString("Loading...",160,120,2);
+  M5.Axp.SetSpkEnable(0);
+  is_connected = false;
+  setupWifi();
   SD.begin();
+  
   qmp6988.init();
   readBrightness();
   readFocus();
@@ -229,7 +239,20 @@ void loop() {
   case 52:screen52();break;
   }
 }
-
+void setupWifi() {
+    M5.Lcd.setTextColor(WHITE);
+    M5.Lcd.setTextDatum(MC_DATUM);
+    M5.Lcd.setTextSize(1);
+   M5.Lcd.drawString("Trying to connect...",160,0,2);
+  WiFi.mode(WIFI_STA); // Set the mode to WiFi station mode.
+  WiFi.begin(ssid, password); // Start Wifi connection.
+  short tries = 0;
+  while (WiFi.status() != WL_CONNECTED && tries<1000) {
+    delay(10);
+    tries++;    
+  }
+  is_connected = WiFi.status() == WL_CONNECTED;
+}
 float getTemperature()
 {
   if(sht30.get()==0){
@@ -288,7 +311,7 @@ int getDay() {readSystemDate();return RTCDate.Date;}
 int getHours() {readSystemTime();return RTCTime.Hours;}
 int getMinutes() {readSystemTime();return RTCTime.Minutes;}
 int getSeconds() {readSystemTime();return RTCTime.Seconds;}
-void showBatteryLevel() 
+void showBatteryLevelAndNetworkStatus() 
 {  
   double voltage = M5.Axp.GetBatVoltage();
   double percentage;
@@ -296,12 +319,14 @@ void showBatteryLevel()
   else {
     percentage = (voltage - 3.2) * 100;
     }
-  char battery_buf[6];
-  sprintf(battery_buf,"%d %%",(int)round(percentage));
+  char battery_buf[10];
+  if (is_connected) {sprintf(battery_buf,"C|%d%%",(int)round(percentage));}
+  else {sprintf(battery_buf,"DC|%d%%",(int)round(percentage));}
+  
   M5.Lcd.setTextColor(WHITE,BLUE);
-  M5.Lcd.setTextSize(1);
+  M5.Lcd.setTextSize(2);
   M5.Lcd.setTextDatum(TR_DATUM);
-  M5.Lcd.drawString(battery_buf,320,0,4);
+  M5.Lcd.drawString(battery_buf,320,0,1);
 }
 void readHours()
 {
@@ -766,6 +791,7 @@ void screen1()
 {
   if (drawScreen) { 
     drawScreen--;
+    
     int hours = getHours(); int minutes = getMinutes();
     int day = getDay(); int month = getMonth(); int year = getYear();
     char time_buf[10]; char hours_buf[5]; char minutes_buf[5];
@@ -782,7 +808,8 @@ void screen1()
     strcpy(time_buf,hours_buf);strcat(time_buf,minutes_buf);
     strcpy(date_buf,day_buf);strcat(date_buf,month_buf);strcat(date_buf,year_buf);
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    M5.Lcd.drawBmpFile(SD, "/wifi_on.bmp",0,0);
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(4);
@@ -808,12 +835,12 @@ void screen2()
 {
   if (drawScreen) {
     drawScreen--;
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     float temp = getTemperature();
     char temp_buf[7];
     sprintf(temp_buf,"%.1f", temp);
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(YELLOW);
     M5.Lcd.setTextDatum(MC_DATUM);
     if ((temp > temp_UB && temp < temp_UB+2) || (temp <= temp_LB && temp >= temp_LB - 2)) {
@@ -852,7 +879,7 @@ void screen3()
     char pres_buf[5];
     sprintf(pres_buf,"%d", pres);
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(GREEN);
     if ((pres > pres_UB && pres < pres_UB+5) || (pres <= pres_LB && pres >= pres_LB - 5)) {
       M5.Lcd.fillRect(0, 70, 320, 25, MAROON);
@@ -891,7 +918,7 @@ void screen4()
     char hum_buf[4];
     sprintf(hum_buf,"%d", hum);
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(CYAN);
     if ((hum > hum_UB && hum < hum_UB+2) || (hum <= hum_LB && hum >= hum_LB - 2)) {
       M5.Lcd.fillRect(0, 70, 320, 25, MAROON);
@@ -927,7 +954,7 @@ void screen5()
   if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -951,7 +978,7 @@ void screen6()
   if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -976,7 +1003,7 @@ void screen7()
   if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1000,7 +1027,7 @@ void screen8()
   if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1024,7 +1051,7 @@ void screen52()
   if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(2);
@@ -1050,7 +1077,7 @@ void screen9()
    if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1074,7 +1101,7 @@ void screen10()
   if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1098,7 +1125,7 @@ void screen11()
   if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1122,7 +1149,7 @@ void screen12()
   if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1147,7 +1174,7 @@ void screen45()
   if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1172,7 +1199,7 @@ void screen51()
   if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextColor(WHITE);
@@ -1202,7 +1229,7 @@ void screen49()
   if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     if (error) {M5.Lcd.setTextColor(RED);M5.Lcd.drawString("Reset complete",160,175,4);M5.Lcd.setTextColor(YELLOW);}
@@ -1243,7 +1270,7 @@ void screen50()
     char buf[10];
     sprintf(buf,"%d", brightness);
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -1278,7 +1305,7 @@ void screen13()
    if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1302,7 +1329,7 @@ void screen14()
    if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1326,7 +1353,7 @@ void screen15()
    if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1350,7 +1377,7 @@ void screen16()
    if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1374,7 +1401,7 @@ void screen17()
    if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1398,7 +1425,7 @@ void screen18()
    if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1423,7 +1450,7 @@ void screen19()
    if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1450,7 +1477,7 @@ void screen20()
     char temp_buf[10];
     sprintf(temp_buf,"%d", temp_LB);
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(YELLOW);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -1497,7 +1524,7 @@ void screen21()
     char temp_buf[10];
     sprintf(temp_buf,"%d", temp_UB);
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(YELLOW);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -1544,7 +1571,7 @@ void screen22()
     char pres_buf[10];
     sprintf(pres_buf,"%d", pres_LB);
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(GREEN);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -1591,7 +1618,7 @@ void screen23()
     char pres_buf[10];
     sprintf(pres_buf,"%d", pres_UB);
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(GREEN);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -1638,7 +1665,7 @@ void screen24()
     char hum_buf[10];
     sprintf(hum_buf,"%d", hum_LB);
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(CYAN);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -1685,7 +1712,7 @@ void screen25()
     char hum_buf[10];
     sprintf(hum_buf,"%d", hum_UB);
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(CYAN);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -1730,7 +1757,7 @@ void screen26()
    if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1754,7 +1781,7 @@ void screen27()
     if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1781,7 +1808,7 @@ void screen28()
    if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1805,7 +1832,7 @@ void screen29()
    if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -1833,7 +1860,7 @@ void screen30()
     if (day<10) {sprintf(day_buf,"0%d", day);}
     else {sprintf(day_buf,"%d", day);}
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -1884,7 +1911,7 @@ void screen31()
     if (month<10) {sprintf(month_buf,"0%d", month);}
     else {sprintf(month_buf,"%d", month);}
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -1934,7 +1961,7 @@ void screen32()
     int year = getYear();
     sprintf(year_buf,"%d", year);
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -1981,7 +2008,7 @@ void screen33()
    if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -2005,7 +2032,7 @@ void screen34()
    if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -2029,7 +2056,7 @@ void screen35()
    if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -2057,7 +2084,7 @@ void screen36()
     if (hours<10) {sprintf(hours_buf,"0%d", hours);}
     else {sprintf(hours_buf,"%d", hours);}
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -2107,7 +2134,7 @@ void screen37()
     if (minutes<10) {sprintf(minutes_buf,"0%d", minutes);}
     else {sprintf(minutes_buf,"%d", minutes);}
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -2153,7 +2180,7 @@ void screen38()
    if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -2222,7 +2249,7 @@ void screen39()
 
     char temp_buf[15];
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(YELLOW);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -2284,7 +2311,7 @@ void screen40()
       }
     
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(YELLOW);
     M5.Lcd.setTextDatum(MC_DATUM);
     char buf[30];
@@ -2422,7 +2449,7 @@ void screen41()
 
     char temp_buf[15];
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(GREEN);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -2484,7 +2511,7 @@ void screen42()
       }
     
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(GREEN);
     M5.Lcd.setTextDatum(MC_DATUM);
     char buf[30];
@@ -2614,7 +2641,7 @@ void screen43()
 
     char temp_buf[15];
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(CYAN);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -2676,7 +2703,7 @@ void screen44()
       }
     
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(CYAN);
     M5.Lcd.setTextDatum(MC_DATUM);
    char buf[30];
@@ -2760,7 +2787,7 @@ void screen46()
    if (drawScreen) {
     drawScreen--;
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(3);
@@ -2793,7 +2820,7 @@ void screen47()
       drawScreen--;
     char buf[15];
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -2829,7 +2856,7 @@ void screen47()
     {
       drawScreen--;
       M5.Lcd.fillScreen(BLACK);
-      showBatteryLevel();
+      showBatteryLevelAndNetworkStatus();
       M5.Lcd.setTextColor(WHITE);
       M5.Lcd.setTextDatum(MC_DATUM);
       M5.Lcd.setTextSize(1);
@@ -2866,7 +2893,7 @@ void screen48()
       drawScreen--;
     char buf[15];
     M5.Lcd.fillScreen(BLACK);
-    showBatteryLevel();
+    showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -2902,7 +2929,7 @@ void screen48()
     {
       drawScreen--;
       M5.Lcd.fillScreen(BLACK);
-      showBatteryLevel();
+      showBatteryLevelAndNetworkStatus();
       M5.Lcd.setTextColor(WHITE);
       M5.Lcd.setTextDatum(MC_DATUM);
       M5.Lcd.setTextSize(1);
