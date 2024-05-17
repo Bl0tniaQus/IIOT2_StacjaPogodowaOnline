@@ -21,7 +21,7 @@ set(desktop_app_SRC
 add_executable(desktop_app ${desktop_app_SRC})
 
 # Use the Widgets module from Qt 5.
-target_link_libraries(desktop_app Qt5::Widgets libpaho-mqtt3as.a libpaho-mqttpp3.a OpenSSL::SSL OpenSSL::Crypto)
+target_link_libraries(desktop_app Qt5::Widgets libpaho-mqttpp3.a libpaho-mqtt3as.a  OpenSSL::SSL OpenSSL::Crypto)
 
 # Install the executable
 install(TARGETS desktop_app DESTINATION bin)

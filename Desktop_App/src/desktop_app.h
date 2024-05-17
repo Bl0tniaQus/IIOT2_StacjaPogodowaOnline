@@ -15,6 +15,7 @@ class Desktop_App : public QMainWindow
 public:
     explicit Desktop_App(QWidget *parent = nullptr);
     ~Desktop_App() override;
+    void setXd(std::string text);
 
 private:
     QScopedPointer<Ui::Desktop_App> m_ui;

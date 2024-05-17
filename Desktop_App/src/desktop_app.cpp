@@ -9,3 +9,9 @@ Desktop_App::Desktop_App(QWidget *parent) :
 }
 
 Desktop_App::~Desktop_App() = default;
+void Desktop_App::setXd(std::string text)
+{
+    auto lbl = findChild<QLabel*>("xd");
+   // lbl->setText(QString::fromStdString(text));
+    lbl->setText("xd");
+};

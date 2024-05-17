@@ -1,4 +1,4 @@
 *.xcf
 *.bmp
-./Desktop_App/*.kdev4
-./Desktop_App/build
+Desktop_App/*.kdev4
+Desktop_App/build
