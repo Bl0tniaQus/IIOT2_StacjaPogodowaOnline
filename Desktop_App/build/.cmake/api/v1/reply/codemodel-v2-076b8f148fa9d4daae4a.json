@@ -1,0 +1,70 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-3cf0f4d3e035a8347d9d.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.0"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "Desktop_App",
+					"targetIndexes" : 
+					[
+						0,
+						1
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "desktop_app::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-desktop_app-Debug-dd5ec3f1102fca60e6f9.json",
+					"name" : "desktop_app",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "desktop_app_autogen::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-desktop_app_autogen-Debug-a4c90c4847d9973b9c61.json",
+					"name" : "desktop_app_autogen",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/blotniak/projekty/Arduino/IIOT2_StacjaPogodowaOnline/Desktop_App/build",
+		"source" : "/home/blotniak/projekty/Arduino/IIOT2_StacjaPogodowaOnline/Desktop_App"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 4
+	}
+}
