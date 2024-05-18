@@ -5,7 +5,6 @@
 #include <QScopedPointer>
 #include <QThread>
 #include "mqtt_controller.h"
-extern std::string message;
 namespace Ui {
 class Desktop_App;
 }

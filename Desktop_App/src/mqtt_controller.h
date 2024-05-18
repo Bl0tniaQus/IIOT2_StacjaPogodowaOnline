@@ -2,7 +2,6 @@
 #define MQTT_CONTROLLER_H
 #include <QObject>
 #include <mqtt/async_client.h>
-extern std::string message;
 
 class Mqtt_Controller : public QObject
 {

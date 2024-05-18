@@ -6,10 +6,6 @@
 #include <pthread.h>
 #include <iostream>
 
-std::string message = "";
-//todo qthread, połączenie mqtt + gui
-
-
 int main(int argc, char *argv[])
 {
 	QApplication app(argc, argv);
