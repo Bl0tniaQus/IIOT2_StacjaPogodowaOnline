@@ -1,11 +1,5 @@
 #include "desktop_app.h"
-#include "mqtt_controller.h"
 #include <QApplication>
-#include <QThread>
-#include <string>
-#include <pthread.h>
-#include <iostream>
-
 int main(int argc, char *argv[])
 {
 	QApplication app(argc, argv);
@@ -13,4 +7,4 @@ int main(int argc, char *argv[])
     w.show();
     return app.exec();
 }
-
+//todo validate json, display everything

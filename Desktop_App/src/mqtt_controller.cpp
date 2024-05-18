@@ -1,5 +1,5 @@
 #include "mqtt_controller.h"
-
+using json = nlohmann::json;
 Mqtt_Controller::Mqtt_Controller()
 {
 }
@@ -19,7 +19,7 @@ void Mqtt_Controller::mqttClient()
 
 	try {
 		cli.start_consuming();
-		//std::cout << "Connecting to the MQTT server..." << std::flush;
+		std::cout << "Connecting to the MQTT server..." << std::flush;
 		auto tok = cli.connect(connOpts);
 		auto rsp = tok->get_connect_response();
 		if (!rsp.is_session_present())
@@ -27,7 +27,11 @@ void Mqtt_Controller::mqttClient()
 		while (true) {
 			auto msg = cli.consume_message();
 			if (!msg) break;
-           // std::cout << msg->get_topic() << ": " << msg->to_string() << std::endl;
+           //std::cout << msg->get_topic() << ": " << msg->to_string() << std::endl;
+			//std::cout<<msg->to_string();
+			checkJson(msg->to_string());
+
+
 			emit sendMqttMessage(QString::fromStdString(msg->to_string()));
 		}
 		if (cli.is_connected()) {
@@ -45,4 +49,20 @@ void Mqtt_Controller::mqttClient()
         std::cerr << "\n  " << exc << std::endl;
 	}
 
+}
+json Mqtt_Controller::checkJson(std::string jsonStr)
+{
+
+	try {
+    json msg = json::parse(jsonStr);
+	//Message.at("temp");
+
+	std::cout<<std::flush;
+	std::cout<<msg["temp"] <<std::endl;
+
+	}
+   catch (json::parse_error e)
+   {
+    std::cout << e.what();
+	}
 }
