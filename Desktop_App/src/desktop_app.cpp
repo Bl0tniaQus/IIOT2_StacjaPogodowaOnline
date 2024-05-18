@@ -6,12 +6,18 @@ Desktop_App::Desktop_App(QWidget *parent) :
     m_ui(new Ui::Desktop_App)
 {
     m_ui->setupUi(this);
+    connect(this, &Desktop_App::startMqtt, &mqttController, &Mqtt_Controller::mqttClient);
+    connect(&mqttController, &Mqtt_Controller::sendMqttMessage, this, &Desktop_App::receiveMqttMessage);
+    mqttController.moveToThread(&mqttThread);
+    mqttThread.start();
+
+
+    emit startMqtt();
 }
 
 Desktop_App::~Desktop_App() = default;
-void Desktop_App::setXd(std::string text)
+void Desktop_App::receiveMqttMessage(QString message)
 {
-    auto lbl = findChild<QLabel*>("xd");
-   // lbl->setText(QString::fromStdString(text));
-    lbl->setText("xd");
-};
+    QLabel* lbl = findChild<QLabel*>("xdd");
+    lbl->setText(message);
+}

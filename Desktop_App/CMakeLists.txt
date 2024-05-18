@@ -15,6 +15,7 @@ find_package(OpenSSL REQUIRED)
 set(desktop_app_SRC
   src/main.cpp
   src/desktop_app.cpp
+  src/mqtt_controller.cpp
 )
 
 # Tell CMake to create the helloworld executable
