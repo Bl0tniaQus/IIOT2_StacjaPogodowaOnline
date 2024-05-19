@@ -1,5 +1,4 @@
 #include "mqtt_controller.h"
-using json = nlohmann::json;
 Mqtt_Controller::Mqtt_Controller()
 {
 }
@@ -29,10 +28,7 @@ void Mqtt_Controller::mqttClient()
 			if (!msg) break;
            //std::cout << msg->get_topic() << ": " << msg->to_string() << std::endl;
 			//std::cout<<msg->to_string();
-			checkJson(msg->to_string());
-
-
-			emit sendMqttMessage(QString::fromStdString(msg->to_string()));
+			emit sendMqttMessage(checkJson(msg->to_string()));
 		}
 		if (cli.is_connected()) {
 			std::cout << "\nShutting down and disconnecting from the MQTT server..." << std::flush;
@@ -50,19 +46,28 @@ void Mqtt_Controller::mqttClient()
 	}
 
 }
-json Mqtt_Controller::checkJson(std::string jsonStr)
+QString Mqtt_Controller::checkJson(std::string jsonStr)
 {
 
 	try {
     json msg = json::parse(jsonStr);
-	//Message.at("temp");
 
-	std::cout<<std::flush;
-	std::cout<<msg["temp"] <<std::endl;
-
+	return QString::fromStdString(jsonStr);
 	}
    catch (json::parse_error e)
    {
-    std::cout << e.what();
+    return QString::fromStdString(
+		R"({
+      "temp_LB": "null",
+      "temp": "null",
+      "temp_UB": "null",
+      "pres_LB": "null",
+      "pres": "null",
+      "pres_UB": "null",
+	  "hum_LB": "null",
+      "hum": "null",
+      "hum_UB": "null"
+    })"
+	);
 	}
 }

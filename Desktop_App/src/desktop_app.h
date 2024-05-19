@@ -5,6 +5,8 @@
 #include <QScopedPointer>
 #include <QThread>
 #include "mqtt_controller.h"
+#include "nlohmann/json.hpp"
+using json = nlohmann::json;
 namespace Ui {
 class Desktop_App;
 }
