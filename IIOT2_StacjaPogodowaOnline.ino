@@ -2,13 +2,16 @@
 #include "M5_ENV.h"
 #include "math.h"
 #include "WiFi.h"
+#include "PubSubClient.h"
 SHT3X sht30;
 QMP6988 qmp6988;
 WiFiClient espClient;
+PubSubClient client(espClient);
 RTC_TimeTypeDef RTCTime;
 RTC_DateTypeDef RTCDate;
-const char* ssid = "ssid";
-const char* password = "tajne";
+char* ssid = "tajne";
+char* password = "tajne";
+const char* mqtt_server = "broker.mqttdashboard.com";
 int menu_stan=1; // Display page
 int pomiary_stan=0;
 char disp_refresh=1; // Display refresh
@@ -38,8 +41,10 @@ float* temps; //temperatury z trzech ostatnich dni
 int* pressures; //ciśnienia z trzech ostatnich dni
 int* humidities; //wilgotności z trzech ostatnich dni
 int* hours; //godziny pomiarów
-
+char buf [100];
 void setupWifi();
+void mqttConnect();
+void publishMeasurements();
 int getPressure();
 float getTemperature();
 int getHumidity();
@@ -144,16 +149,15 @@ void setup() {
   // put your setup code here, to run once:
   Wire.begin(); // Wire init, adding the I2C bus.
   M5.begin();
-  
   M5.Lcd.setTextColor(WHITE);
   M5.Lcd.setTextDatum(MC_DATUM);
   M5.Lcd.setTextSize(3);
   M5.Lcd.drawString("Loading...",160,120,2);
   M5.Axp.SetSpkEnable(0);
+  client.setServer(mqtt_server, 1883);
   is_connected = false;
   setupWifi();
   SD.begin();
-  
   qmp6988.init();
   readBrightness();
   readFocus();
@@ -170,6 +174,7 @@ void setup() {
 //prognoza, komentarze
 void loop() {
   M5.update();
+  if (!client.connected()) { mqttConnect(); }
  if (menu_stan!=20&&menu_stan!=21&&menu_stan!=22&&menu_stan!=23&&menu_stan!=24&&menu_stan!=25
  &&menu_stan!=30&&menu_stan!=31&&menu_stan!=32&&menu_stan!=36&&menu_stan!=37&&menu_stan!=49&&menu_stan!=50) {error = false;}
  if (menu_stan!=49) {reset_confirm = false;}
@@ -240,6 +245,7 @@ void loop() {
   }
 }
 void setupWifi() {
+  
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
@@ -252,6 +258,28 @@ void setupWifi() {
     tries++;    
   }
   is_connected = WiFi.status() == WL_CONNECTED;
+}
+void mqttConnect()
+{
+  
+  int tries = 0;
+  while (!client.connected() && tries<1000) {
+      
+    // Próba nawiązania połączenia
+    if (client.connect("M5PIR")) {
+    client.subscribe("pir/test/xd/#"); // ponowna subskrypcja tematu
+    } else {
+      delay(10);
+      tries++;  }
+  } 
+}
+
+void publishMeasurements()
+{
+  char jsonStr [100];
+  float temp = getTemperature();
+  sprintf(jsonStr, "{\"temp_LB\":\"%d\",\"temp\":\"%.1f\",\"temp_UB\":\"%d\"}", temp_LB,temp,temp_UB);
+  client.publish("pir/test/xd", jsonStr);
 }
 float getTemperature()
 {
@@ -791,7 +819,7 @@ void screen1()
 {
   if (drawScreen) { 
     drawScreen--;
-    
+    publishMeasurements();
     int hours = getHours(); int minutes = getMinutes();
     int day = getDay(); int month = getMonth(); int year = getYear();
     char time_buf[10]; char hours_buf[5]; char minutes_buf[5];
@@ -823,7 +851,7 @@ void screen1()
     M5.Lcd.drawString("...",160,240,4);
     M5.Lcd.setTextDatum(BR_DATUM);
     M5.Lcd.drawString(">",275,240,4);
-    
+    publishMeasurements();
     }
   if (((millis()-timer1>=timerLimit1)||(millis()-timer1<0))&&focus) {drawScreen = 1; timer1 = millis();}
   else if ((((millis()-timer1>=timerLimit1)||(millis()-timer1<0))&&!focus)||M5.BtnC.wasPressed()) {menu_stan = 2; drawScreen=1; timer1=millis();}
