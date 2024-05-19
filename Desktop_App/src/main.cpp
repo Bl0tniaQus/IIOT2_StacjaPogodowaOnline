@@ -7,4 +7,9 @@ int main(int argc, char *argv[])
     w.show();
     return app.exec();
 }
-//todo validate json, display everything
+//todo
+//request message from m5
+//configs
+//ui
+//m5 OWM + NTP
+//connection QOL

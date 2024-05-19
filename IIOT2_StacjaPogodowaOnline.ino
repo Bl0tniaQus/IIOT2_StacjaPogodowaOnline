@@ -276,9 +276,12 @@ void mqttConnect()
 
 void publishMeasurements()
 {
-  char jsonStr [100];
+  char jsonStr [200];
   float temp = getTemperature();
-  sprintf(jsonStr, "{\"temp_LB\":\"%d\",\"temp\":\"%.1f\",\"temp_UB\":\"%d\"}", temp_LB,temp,temp_UB);
+  int pres = getPressure();
+  int hum = getHumidity();
+  sprintf(jsonStr, "{\"temp_LB\":\"%d\",\"temp\":\"%.1f\",\"temp_UB\":\"%d\",\"pres_LB\":\"%d\",\"pres\":\"%d\",\"pres_UB\":\"%d\",\"hum_LB\":\"%d\",\"hum\":\"%d\",\"hum_UB\":\"%d\"}",
+  temp_LB,temp,temp_UB,pres_LB,pres,pres_UB,hum_LB,hum,hum_UB);
   client.publish("pir/test/xd", jsonStr);
 }
 float getTemperature()
