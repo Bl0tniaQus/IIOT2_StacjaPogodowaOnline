@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QScopedPointer>
 #include <QThread>
+#include <QtCharts>
 #include "mqtt_controller.h"
 #include "nlohmann/json.hpp"
 using json = nlohmann::json;

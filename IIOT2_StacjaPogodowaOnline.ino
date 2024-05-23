@@ -9,8 +9,8 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 RTC_TimeTypeDef RTCTime;
 RTC_DateTypeDef RTCDate;
-char* ssid = "tajne";
-char* password = "tajne";
+char* ssid = "DWR-933_529572";
+char* password = "tFngf25356";
 const char* mqtt_server = "broker.mqttdashboard.com";
 int menu_stan=1; // Display page
 int pomiary_stan=0;
@@ -276,13 +276,35 @@ void mqttConnect()
 
 void publishMeasurements()
 {
-  char jsonStr [200];
+  char jsonStr [2048];
   float temp = getTemperature();
   int pres = getPressure();
   int hum = getHumidity();
-  sprintf(jsonStr, "{\"temp_LB\":\"%d\",\"temp\":\"%.1f\",\"temp_UB\":\"%d\",\"pres_LB\":\"%d\",\"pres\":\"%d\",\"pres_UB\":\"%d\",\"hum_LB\":\"%d\",\"hum\":\"%d\",\"hum_UB\":\"%d\"}",
+  //readTemps();
+ // readHours();
+ // String tempsBuf = "\"temps\":[";
+ // String hoursBuf = "\"temps\":[";
+ // if (n_temps==n_hours)
+ //   {
+ //     for (int i=0;i<n_temps;i++)
+  //    {
+  //        tempsBuf += String(temps[i]);
+   //       hoursBuf += hoursBuf + String(hours[i]);
+    //      if (i!=n_temps-1)
+    //      {
+    //          tempsBuf += ",";
+     //         hoursBuf += ",";
+     //     }
+          
+     // }
+    //  tempsBuf += "]";
+    //  hoursBuf += "]";
+    //}
+  sprintf(jsonStr, "{\"temp_LB\":%d,\"temp\":%.1f,\"temp_UB\":%d,\"pres_LB\":%d,\"pres\":%d,\"pres_UB\":%d,\"hum_LB\":%d,\"hum\":%d,\"hum_UB\":%d}",
   temp_LB,temp,temp_UB,pres_LB,pres,pres_UB,hum_LB,hum,hum_UB);
   client.publish("pir/test/xd", jsonStr);
+  //client.publish("pir/test/xd", tempsBuf.c_str());
+  //client.publish("pir/test/xd", hoursBuf.c_str());
 }
 float getTemperature()
 {
@@ -839,7 +861,6 @@ void screen1()
     strcpy(time_buf,hours_buf);strcat(time_buf,minutes_buf);
     strcpy(date_buf,day_buf);strcat(date_buf,month_buf);strcat(date_buf,year_buf);
     M5.Lcd.fillScreen(BLACK);
-    M5.Lcd.drawBmpFile(SD, "/wifi_on.bmp",0,0);
     showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
@@ -854,7 +875,6 @@ void screen1()
     M5.Lcd.drawString("...",160,240,4);
     M5.Lcd.setTextDatum(BR_DATUM);
     M5.Lcd.drawString(">",275,240,4);
-    publishMeasurements();
     }
   if (((millis()-timer1>=timerLimit1)||(millis()-timer1<0))&&focus) {drawScreen = 1; timer1 = millis();}
   else if ((((millis()-timer1>=timerLimit1)||(millis()-timer1<0))&&!focus)||M5.BtnC.wasPressed()) {menu_stan = 2; drawScreen=1; timer1=millis();}
