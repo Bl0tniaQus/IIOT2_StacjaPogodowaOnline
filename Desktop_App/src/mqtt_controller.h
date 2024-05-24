@@ -13,6 +13,7 @@ public:
 public slots:
     void mqttClient();
     QString checkJson(std::string jsonStr);
+
 signals:
     void sendMqttMessage(QString message);
 private:

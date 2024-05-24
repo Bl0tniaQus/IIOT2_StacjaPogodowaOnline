@@ -19,7 +19,7 @@ class Desktop_App : public QMainWindow
 public:
     explicit Desktop_App(QWidget *parent = nullptr);
     ~Desktop_App() override;
-    void setXd(std::string text);
+    void drawTempChart(std::vector<short> h, std::vector<float> t);
 public slots:
     void receiveMqttMessage(QString message);
 signals:

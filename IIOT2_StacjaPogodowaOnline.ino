@@ -9,8 +9,8 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 RTC_TimeTypeDef RTCTime;
 RTC_DateTypeDef RTCDate;
-char* ssid = "DWR-933_529572";
-char* password = "tFngf25356";
+char* ssid = "tajne";
+char* password = "tajne";
 const char* mqtt_server = "broker.mqttdashboard.com";
 int menu_stan=1; // Display page
 int pomiary_stan=0;
@@ -268,6 +268,7 @@ void mqttConnect()
     // Próba nawiązania połączenia
     if (client.connect("M5PIR")) {
     client.subscribe("pir/test/xd/#"); // ponowna subskrypcja tematu
+    client.setBufferSize(4096);
     } else {
       delay(10);
       tries++;  }
@@ -280,31 +281,41 @@ void publishMeasurements()
   float temp = getTemperature();
   int pres = getPressure();
   int hum = getHumidity();
-  //readTemps();
- // readHours();
- // String tempsBuf = "\"temps\":[";
- // String hoursBuf = "\"temps\":[";
- // if (n_temps==n_hours)
- //   {
- //     for (int i=0;i<n_temps;i++)
-  //    {
-  //        tempsBuf += String(temps[i]);
-   //       hoursBuf += hoursBuf + String(hours[i]);
-    //      if (i!=n_temps-1)
-    //      {
-    //          tempsBuf += ",";
-     //         hoursBuf += ",";
-     //     }
+  readTemps();
+  readHours();
+  readPressures();
+  readHumidities();
+  String tempsBuf = "\"temps\":[";
+  String hoursBuf = "\"hours\":[";
+  String pressuresBuf = "\"pressures\":[";
+  String humsBuf = "\"hums\":[";
+  if ((n_temps==n_hours)&&(n_hours==n_pressures)&&(n_hours==n_humidities))
+    {
+     for (int i=0;i<n_temps;i++)
+      {
+          tempsBuf += String(temps[i],1);
+          hoursBuf += String(hours[i]);
+          pressuresBuf += String(pressures[i]);
+          humsBuf += String(humidities[i]);
+          if (i!=n_temps-1)
+          {
+              tempsBuf += ",";
+              hoursBuf += ",";
+              pressuresBuf += ",";
+              humsBuf += ",";
+          }
           
-     // }
-    //  tempsBuf += "]";
-    //  hoursBuf += "]";
-    //}
-  sprintf(jsonStr, "{\"temp_LB\":%d,\"temp\":%.1f,\"temp_UB\":%d,\"pres_LB\":%d,\"pres\":%d,\"pres_UB\":%d,\"hum_LB\":%d,\"hum\":%d,\"hum_UB\":%d}",
+      } 
+    }
+      tempsBuf += "]";
+      hoursBuf += "]";
+      pressuresBuf += "]";
+      humsBuf += "]";
+  sprintf(jsonStr, "{\"temp_LB\":%d,\"temp\":%.1f,\"temp_UB\":%d,\"pres_LB\":%d,\"pres\":%d,\"pres_UB\":%d,\"hum_LB\":%d,\"hum\":%d,\"hum_UB\":%d,",
   temp_LB,temp,temp_UB,pres_LB,pres,pres_UB,hum_LB,hum,hum_UB);
-  client.publish("pir/test/xd", jsonStr);
-  //client.publish("pir/test/xd", tempsBuf.c_str());
-  //client.publish("pir/test/xd", hoursBuf.c_str());
+  String message = String(jsonStr) + hoursBuf + "," + tempsBuf + "," + pressuresBuf + "," + humsBuf + "}";
+  client.publish("pir/test/xd", message.c_str());
+
 }
 float getTemperature()
 {
@@ -844,7 +855,7 @@ void screen1()
 {
   if (drawScreen) { 
     drawScreen--;
-    publishMeasurements();
+    
     int hours = getHours(); int minutes = getMinutes();
     int day = getDay(); int month = getMonth(); int year = getYear();
     char time_buf[10]; char hours_buf[5]; char minutes_buf[5];
@@ -861,6 +872,7 @@ void screen1()
     strcpy(time_buf,hours_buf);strcat(time_buf,minutes_buf);
     strcpy(date_buf,day_buf);strcat(date_buf,month_buf);strcat(date_buf,year_buf);
     M5.Lcd.fillScreen(BLACK);
+    publishMeasurements();
     showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
