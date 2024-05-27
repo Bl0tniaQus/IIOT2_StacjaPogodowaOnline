@@ -28,26 +28,69 @@ void Desktop_App::receiveMqttMessage(QString message)
 
     int temp_LB,temp_UB,pres_LB,pres_UB,hum_LB,hum_UB,pres,hum;
     float temp;
-    try {temp_LB = int(jsonMsg["temp_LB"]); findChild<QLabel*>("temp_LB")->setText(QString::number(temp_LB));}
-    catch (...) {temp_LB = -999; findChild<QLabel*>("temp_LB")->setText("null");}
+    try {temp_LB = int(jsonMsg["temp_LB"]);}
+    catch (...) {temp_LB = -9999; findChild<QLabel*>("tempBounds")->setText("<null;null>");}
     try {temp = float(jsonMsg["temp"]); findChild<QLabel*>("temp")->setText(QString::number(temp));}
-    catch (...) {temp = -999; findChild<QLabel*>("temp")->setText("null");}
-    try {temp_UB = int(jsonMsg["temp_UB"]); findChild<QLabel*>("temp_UB")->setText(QString::number(temp_UB));}
-    catch (...) {temp_UB = -999; findChild<QLabel*>("temp_LB")->setText("null");}
+    catch (...) {temp = 9999; findChild<QLabel*>("temp")->setText("null");}
+    try {
+        temp_UB = int(jsonMsg["temp_UB"]);
+        findChild<QLabel*>("tempBounds")->setText("<"+QString::number(temp_LB)+";"+QString::number(temp_UB)+">");
+    }
+    catch (...) {temp_UB = 9999; findChild<QLabel*>("tempBounds")->setText("<null;null>");}
 
-    try {hum_LB = int(jsonMsg["hum_LB"]); findChild<QLabel*>("hum_LB")->setText(QString::number(hum_LB));}
-    catch (...) {hum_LB = -999; findChild<QLabel*>("hum_LB")->setText("null");}
+    try {pres_LB = int(jsonMsg["pres_LB"]);}
+    catch (...) {pres_LB = -9999; findChild<QLabel*>("presBounds")->setText("<null;null>");}
+    try {pres = int(jsonMsg["pres"]); findChild<QLabel*>("pres")->setText(QString::number(pres));}
+    catch (...) {pres = 9999; findChild<QLabel*>("pres")->setText("null");}
+    try {
+        pres_UB = int(jsonMsg["pres_UB"]);
+        findChild<QLabel*>("presBounds")->setText("<"+QString::number(pres_LB)+";"+QString::number(pres_UB)+">");
+    }
+    catch (...) {pres_UB = 9999; findChild<QLabel*>("presBounds")->setText("<null;null>");}
+
+    try {hum_LB = int(jsonMsg["hum_LB"]);}
+    catch (...) {hum_LB = -9999; findChild<QLabel*>("humBounds")->setText("<null;null>");}
     try {hum = int(jsonMsg["hum"]); findChild<QLabel*>("hum")->setText(QString::number(hum));}
-    catch (...) {hum = -999; findChild<QLabel*>("hum")->setText("null");}
-    try {hum_UB = int(jsonMsg["hum_UB"]); findChild<QLabel*>("hum_UB")->setText(QString::number(hum_UB));}
-    catch (...) {hum_UB = -999; findChild<QLabel*>("hum_LB")->setText("null");}
+    catch (...) {hum = 9999; findChild<QLabel*>("hum")->setText("null");}
+    try {
+        hum_UB = int(jsonMsg["hum_UB"]);
+        findChild<QLabel*>("humBounds")->setText("<"+QString::number(hum_LB)+";"+QString::number(hum_UB)+">");
+    }
+    catch (...) {hum_UB = 9999; findChild<QLabel*>("humBounds")->setText("<null;null>");}
 
-    try {pres_LB = int(jsonMsg["pres_LB"]); findChild<QLabel*>("pres_LB")->setText(QString::number(pres_LB));}
-    catch (...) {pres_LB = -999; findChild<QLabel*>("pres_LB")->setText("null");}
-    try {pres = float(jsonMsg["pres"]); findChild<QLabel*>("pres")->setText(QString::number(pres));}
-    catch (...) {pres = -999; findChild<QLabel*>("pres")->setText("null");}
-    try {pres_UB = int(jsonMsg["pres_UB"]); findChild<QLabel*>("pres_UB")->setText(QString::number(pres_UB));}
-    catch (...) {pres_UB = -999; findChild<QLabel*>("pres_LB")->setText("null");}
+
+    QFrame* tempFrame = findChild<QFrame*>("tempFrame");
+    QFrame* presFrame = findChild<QFrame*>("presFrame");
+    QFrame* humFrame = findChild<QFrame*>("humFrame");
+
+    tempFrame->setStyleSheet("background-color:#1b1e20; border:6px solid black;");
+    presFrame->setStyleSheet("background-color:#1b1e20; border:6px solid black;");
+    humFrame->setStyleSheet("background-color:#1b1e20; border:6px solid black;");
+
+    if ((temp > temp_UB && temp < temp_UB+2) || (temp <= temp_LB && temp >= temp_LB - 2))
+    {
+      tempFrame->setStyleSheet("background-color:#1b1e20; border:6px solid maroon;");
+      }
+    else if (temp > temp_UB + 2 || temp < temp_LB - 2) {
+      tempFrame->setStyleSheet("background-color:maroon; border:6px solid black;");
+    }
+
+    if ((pres > pres_UB && pres < pres_UB+5) || (pres <= pres_LB && pres >= pres_LB - 5))
+    {
+      presFrame->setStyleSheet("background-color:#1b1e20; border:6px solid maroon;");
+      }
+    else if (pres > pres_UB + 5 || pres < pres_LB - 5) {
+      presFrame->setStyleSheet("background-color:maroon; border:6px solid black;");
+    }
+
+    if ((hum > hum_UB && hum < hum_UB+2) || (hum <= hum_LB && hum >= hum_LB - 2))
+    {
+      humFrame->setStyleSheet("background-color:#1b1e20; border:6px solid maroon;");
+      }
+    else if (hum > hum_UB + 2 || hum < hum_LB - 2) {
+      humFrame->setStyleSheet("background-color:maroon; border:6px solid black;");
+    }
+
 
     std::vector<short> hours;
     std::vector<float> temps;
