@@ -2,6 +2,7 @@
 #include "M5_ENV.h"
 #include "math.h"
 #include "WiFi.h"
+#include "time.h"
 #include "PubSubClient.h"
 SHT3X sht30;
 QMP6988 qmp6988;
@@ -9,9 +10,13 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 RTC_TimeTypeDef RTCTime;
 RTC_DateTypeDef RTCDate;
-char* ssid = "tajne";
-char* password = "tajne";
+const char* ssid = "tajne";
+const char* password = "tajne";
 const char* mqtt_server = "broker.mqttdashboard.com";
+const char* owmkey = "";
+const char* ntp_server = "pool.ntp.org";
+const long  gmtOffset_sec = 3600; //gmt+1 -> 3600
+const int   daylightOffset_sec = 3600;
 int menu_stan=1; // Display page
 int pomiary_stan=0;
 char disp_refresh=1; // Display refresh
@@ -26,6 +31,10 @@ int focus;
 bool error;
 bool reset_confirm;
 bool is_connected;
+bool hour_passed = false;
+bool fifteen_minutes_passed = false;
+bool connection_tested = false;
+bool measurements_written = false;
 //tablice z danymi historycznymi
 int n_hours = 0;
 int n_temps = 0;
@@ -79,6 +88,7 @@ void writeHUB(int val);
 void readBounds();
 void factoryReset();
 void forecast();
+void syncTime();
 int getY(int val, int minval, int unit, int ymin);
 //ekrany główne
 void screen1(); //data i czas
@@ -157,6 +167,7 @@ void setup() {
   client.setServer(mqtt_server, 1883);
   is_connected = false;
   setupWifi();
+  if (is_connected) {syncTime();}
   SD.begin();
   qmp6988.init();
   readBrightness();
@@ -174,15 +185,32 @@ void setup() {
 //prognoza, komentarze
 void loop() {
   M5.update();
-  if (!client.connected()) { mqttConnect(); }
+  
  if (menu_stan!=20&&menu_stan!=21&&menu_stan!=22&&menu_stan!=23&&menu_stan!=24&&menu_stan!=25
  &&menu_stan!=30&&menu_stan!=31&&menu_stan!=32&&menu_stan!=36&&menu_stan!=37&&menu_stan!=49&&menu_stan!=50) {error = false;}
  if (menu_stan!=49) {reset_confirm = false;}
-
-  if ((millis()-timer3>3600*1000)||(millis()-timer3<0))
+  if (getMinutes()==0&&!measurements_written) {hour_passed=true; measurements_written = false;}
+  else {measurements_written = true;}
+  if (getMinutes()+1%15==0&&!connection_tested) {fifteen_minutes_passed=true; connection_tested = false;}
+  else {connection_tested = true;}
+  if (fifteen_minutes_passed)
+  {
+    if (!is_connected) {setupWifi();}
+    if (!client.connected()) { mqttConnect(); }
+    fifteen_minutes_passed=false;
+    connection_tested = true;
+    drawScreen++;
+  }
+  if (hour_passed)
   {
     writeMeasurements();
-    timer3 = millis();
+    hour_passed=false;
+    measurements_written = true;
+    if (is_connected)
+    {
+      publishMeasurements();
+      syncTime();
+    }
     drawScreen++;
   }
 
@@ -274,9 +302,9 @@ void mqttConnect()
       tries++;  }
   } 
 }
-
 void publishMeasurements()
 {
+  if (!client.connected()) {return;}
   char jsonStr [2048];
   float temp = getTemperature();
   int pres = getPressure();
@@ -847,6 +875,18 @@ void forecast()
   pres1 = (sP+pressures[71]) / 71;
   pres2 = pres1;   
 }
+void syncTime()
+{
+  configTime(gmtOffset_sec, daylightOffset_sec, ntp_server);
+  struct tm timeinfo;
+  if (getLocalTime(&timeinfo))
+  {
+    timeinfo.tm_hour;
+    setDate(timeinfo.tm_year+1900,timeinfo.tm_mon+1,timeinfo.tm_mday);
+    setTime(timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
+  }
+ 
+}
 int getY(int val, int minval, int unit, int ymin)
 {
   return ymin - (val - minval) * unit;
@@ -855,7 +895,6 @@ void screen1()
 {
   if (drawScreen) { 
     drawScreen--;
-    
     int hours = getHours(); int minutes = getMinutes();
     int day = getDay(); int month = getMonth(); int year = getYear();
     char time_buf[10]; char hours_buf[5]; char minutes_buf[5];
@@ -872,7 +911,6 @@ void screen1()
     strcpy(time_buf,hours_buf);strcat(time_buf,minutes_buf);
     strcpy(date_buf,day_buf);strcat(date_buf,month_buf);strcat(date_buf,year_buf);
     M5.Lcd.fillScreen(BLACK);
-    publishMeasurements();
     showBatteryLevelAndNetworkStatus();
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);

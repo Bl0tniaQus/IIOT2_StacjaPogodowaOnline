@@ -1,44 +1,55 @@
 #include "mqtt_controller.h"
 Mqtt_Controller::Mqtt_Controller()
 {
+
 }
 Mqtt_Controller::~Mqtt_Controller()
 {
 
 }
-
-
+bool Mqtt_Controller::isConnected()
+{
+	return status;
+}
 void Mqtt_Controller::mqttClient()
 {
-     mqtt::async_client cli(SERVER_ADDRESS, CLIENT_ID);
 
+
+	mqtt::async_client client(SERVER_ADDRESS,CLIENT_ID);
 	auto connOpts = mqtt::connect_options_builder()
 		.clean_session(false)
 		.finalize();
 
 	try {
-		cli.start_consuming();
-		std::cout << "Connecting to the MQTT server..." << std::flush;
-		auto tok = cli.connect(connOpts);
+		client.start_consuming();
+		//std::cout << "Connecting to the MQTT server..." << std::flush;
+		auto tok = client.connect(connOpts);
 		auto rsp = tok->get_connect_response();
 		if (!rsp.is_session_present())
-			cli.subscribe(TOPIC, QOS)->wait();
+		{client.subscribe(TOPIC, QOS)->wait();
+			}
+		if (client.is_connected()) {emit clientConnected();}
 		while (true) {
-			auto msg = cli.consume_message();
+			status = true;
+			emit clientConnected();
+			auto msg = client.consume_message();
 			if (!msg) break;
-           //std::cout << msg->get_topic() << ": " << msg->to_string() << std::endl;
-			//std::cout<<msg->to_string();
+			if (!client.is_connected()) {emit clientDisconnected();}
 			emit sendMqttMessage(checkJson(msg->to_string()));
 		}
-		if (cli.is_connected()) {
+		if (client.is_connected()) {
 			std::cout << "\nShutting down and disconnecting from the MQTT server..." << std::flush;
-			cli.unsubscribe(TOPIC)->wait();
-			cli.stop_consuming();
-			cli.disconnect()->wait();
+			client.unsubscribe(TOPIC)->wait();
+			client.stop_consuming();
+			client.disconnect()->wait();
 			std::cout << "OK" << std::endl;
+			status=false;
+			emit clientDisconnected();
+
 		}
 		else {
-			std::cout << "\nClient was disconnected" << std::endl;
+			status=false;
+			emit clientDisconnected();
 		}
 	}
 	catch (const mqtt::exception& exc) {

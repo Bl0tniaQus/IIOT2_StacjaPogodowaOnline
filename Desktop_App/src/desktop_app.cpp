@@ -9,19 +9,29 @@ Desktop_App::Desktop_App(QWidget *parent) :
     findChild<QChartView*>("tempChart")->setVisible(false);
     findChild<QChartView*>("presChart")->setVisible(false);
     findChild<QChartView*>("humChart")->setVisible(false);
+    connect(findChild<QPushButton*>("reconnectButton"), &QPushButton::released, this, &Desktop_App::startMqttThread);
+    connect(&mqttController, &Mqtt_Controller::clientDisconnected, this, &Desktop_App::startMqttThread);
+    connect(&mqttController, &Mqtt_Controller::clientConnected, this, &Desktop_App::connectionLabelTrue);
+    startMqttThread();
+}
+void Desktop_App::startMqttThread()
+{
+    QLabel* connectionLabel = findChild<QLabel*>("connectionLabel");
+    connectionLabel->setText("disconnected");
+    mqttThread.exit();
     connect(this, &Desktop_App::startMqtt, &mqttController, &Mqtt_Controller::mqttClient);
     connect(&mqttController, &Mqtt_Controller::sendMqttMessage, this, &Desktop_App::receiveMqttMessage);
     mqttController.moveToThread(&mqttThread);
     mqttThread.start();
-
-
     emit startMqtt();
-
-
-
+}
+Desktop_App::~Desktop_App() = default;
+void Desktop_App::connectionLabelTrue()
+{
+    QLabel* connectionLabel = findChild<QLabel*>("connectionLabel");
+    connectionLabel->setText("connected");
 }
 
-Desktop_App::~Desktop_App() = default;
 void Desktop_App::receiveMqttMessage(QString message)
 {
     json jsonMsg = json::parse(message.toStdString());

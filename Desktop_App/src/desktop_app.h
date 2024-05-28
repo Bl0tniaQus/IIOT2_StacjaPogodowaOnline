@@ -19,6 +19,8 @@ class Desktop_App : public QMainWindow
 public:
     explicit Desktop_App(QWidget *parent = nullptr);
     ~Desktop_App() override;
+    void startMqttThread();
+    void connectionLabelTrue();
     void drawTempChart(std::vector<short> h, std::vector<float> t, int lb, int ub);
     void drawHumChart(std::vector<short> h, std::vector<short> t, int lb, int ub);
     void drawPresChart(std::vector<short> h, std::vector<short> t, int lb, int ub);

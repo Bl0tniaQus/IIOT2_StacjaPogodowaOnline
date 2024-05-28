@@ -10,13 +10,17 @@ class Mqtt_Controller : public QObject
 public:
     Mqtt_Controller();
     ~Mqtt_Controller();
+    bool isConnected();
+    QString checkJson(std::string jsonStr);
 public slots:
     void mqttClient();
-    QString checkJson(std::string jsonStr);
-
 signals:
     void sendMqttMessage(QString message);
+    void clientDisconnected();
+    void clientConnected();
 private:
+    ;
+    bool status;
     std::string SERVER_ADDRESS = "broker.mqttdashboard.com";
     std::string CLIENT_ID =  "pirtesterxd";
     std::string TOPIC = "pir/test/xd";
