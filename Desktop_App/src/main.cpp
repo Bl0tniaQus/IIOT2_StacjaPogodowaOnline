@@ -8,8 +8,6 @@ int main(int argc, char *argv[])
     return app.exec();
 }
 //todo
-//request message from m5
-//configs
-//ui
-//m5 OWM + NTP
-//connection QOL
+//mqtt owm
+//da configs
+//connection labels and request button
