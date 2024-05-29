@@ -19,7 +19,6 @@ signals:
     void clientDisconnected();
     void clientConnected();
 private:
-    ;
     bool status;
     std::string SERVER_ADDRESS = "broker.mqttdashboard.com";
     std::string CLIENT_ID =  "pirtesterxd";

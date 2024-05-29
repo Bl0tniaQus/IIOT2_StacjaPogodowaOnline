@@ -89,6 +89,7 @@ void readBounds();
 void factoryReset();
 void forecast();
 void syncTime();
+void callback(char* topic, byte* payload, unsigned int length);
 int getY(int val, int minval, int unit, int ymin);
 //ekrany główne
 void screen1(); //data i czas
@@ -885,7 +886,9 @@ void syncTime()
     setDate(timeinfo.tm_year+1900,timeinfo.tm_mon+1,timeinfo.tm_mday);
     setTime(timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
   }
- 
+}
+void callback(char* topic, byte* payload, unsigned int length) {
+  //tu coś zrobić
 }
 int getY(int val, int minval, int unit, int ymin)
 {

@@ -8,6 +8,5 @@ int main(int argc, char *argv[])
     return app.exec();
 }
 //todo
-//mqtt owm
-//da configs
-//connection labels and request button
+//m5 owm jak starczy czasu
+//m5 "api", remote configs
