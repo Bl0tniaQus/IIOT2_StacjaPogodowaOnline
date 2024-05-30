@@ -6,17 +6,17 @@
 #include "PubSubClient.h"
 SHT3X sht30;
 QMP6988 qmp6988;
-WiFiClient espClient;
-PubSubClient client(espClient);
 RTC_TimeTypeDef RTCTime;
 RTC_DateTypeDef RTCDate;
 const char* ssid = "tajne";
 const char* password = "tajne";
 const char* mqtt_server = "broker.mqttdashboard.com";
-const char* owmkey = "";
 const char* ntp_server = "pool.ntp.org";
 const long  gmtOffset_sec = 3600; //gmt+1 -> 3600
 const int   daylightOffset_sec = 3600;
+WiFiClient espClient;
+void callback(char* topic, byte* payload, unsigned int length);
+PubSubClient client(mqtt_server, 1883, callback, espClient);
 int menu_stan=1; // Display page
 int pomiary_stan=0;
 char disp_refresh=1; // Display refresh
@@ -79,6 +79,12 @@ void writeBrightness(int val);
 void writeFocus(char val);
 void readBrightness();
 void readFocus();
+bool setTLB(int val);
+bool setTUB(int val);
+bool setPLB(int val);
+bool setPUB(int val);
+bool setHLB(int val);
+bool setHUB(int val);
 void writeTLB(int val);
 void writeTUB(int val);
 void writePLB(int val);
@@ -89,7 +95,6 @@ void readBounds();
 void factoryReset();
 void forecast();
 void syncTime();
-void callback(char* topic, byte* payload, unsigned int length);
 int getY(int val, int minval, int unit, int ymin);
 //ekrany główne
 void screen1(); //data i czas
@@ -165,9 +170,9 @@ void setup() {
   M5.Lcd.setTextSize(3);
   M5.Lcd.drawString("Loading...",160,120,2);
   M5.Axp.SetSpkEnable(0);
-  client.setServer(mqtt_server, 1883);
   is_connected = false;
   setupWifi();
+  mqttConnect();
   if (is_connected) {syncTime();}
   SD.begin();
   qmp6988.init();
@@ -182,18 +187,20 @@ void setup() {
   hours = new int[0];
   timer1 = millis();
   timer3 = millis();
+  //publishMeasurements();
 }
 //prognoza, komentarze
 void loop() {
   M5.update();
-  
  if (menu_stan!=20&&menu_stan!=21&&menu_stan!=22&&menu_stan!=23&&menu_stan!=24&&menu_stan!=25
  &&menu_stan!=30&&menu_stan!=31&&menu_stan!=32&&menu_stan!=36&&menu_stan!=37&&menu_stan!=49&&menu_stan!=50) {error = false;}
  if (menu_stan!=49) {reset_confirm = false;}
-  if (getMinutes()==0&&!measurements_written) {hour_passed=true; measurements_written = false;}
-  else {measurements_written = true;}
-  if (getMinutes()+1%15==0&&!connection_tested) {fifteen_minutes_passed=true; connection_tested = false;}
-  else {connection_tested = true;}
+ 
+  if (getMinutes()==0&&!measurements_written) {hour_passed=true;}
+  else if (getMinutes()!=0) {measurements_written = false;}
+  if (getMinutes()+1%15==0&&!connection_tested) {fifteen_minutes_passed=true;}
+  else if(getMinutes()+1%15!=0){connection_tested = false;}
+  
   if (fifteen_minutes_passed)
   {
     if (!is_connected) {setupWifi();}
@@ -202,16 +209,18 @@ void loop() {
     connection_tested = true;
     drawScreen++;
   }
+  
   if (hour_passed)
   {
     writeMeasurements();
     hour_passed=false;
-    measurements_written = true;
+
     if (is_connected)
     {
       publishMeasurements();
       syncTime();
     }
+    measurements_written = true;
     drawScreen++;
   }
 
@@ -272,6 +281,7 @@ void loop() {
   case 51:screen51();break;
   case 52:screen52();break;
   }
+  client.loop();
 }
 void setupWifi() {
   
@@ -296,12 +306,31 @@ void mqttConnect()
       
     // Próba nawiązania połączenia
     if (client.connect("M5PIR")) {
-    client.subscribe("pir/test/xd/#"); // ponowna subskrypcja tematu
+    client.subscribe("M5Stack/IIOT/AH/#"); // ponowna subskrypcja tematu
     client.setBufferSize(4096);
     } else {
       delay(10);
       tries++;  }
   } 
+}
+void callback(char* topic, byte* payload, unsigned int length) 
+{
+  if (strcmp(topic, "M5Stack/IIOT/AH/request/all")==0)
+    {
+      publishMeasurements();
+    }
+  if (strcmp(topic, "M5Stack/IIOT/AH/request/temperature")==0)
+    {
+      client.publish("M5Stack/IIOT/AH/temp", String(getTemperature()).c_str());
+    }
+  if (strcmp(topic, "M5Stack/IIOT/AH/request/pressure")==0)
+    {
+      client.publish("M5Stack/IIOT/AH/pressure", String(getPressure()).c_str());
+    }
+   if (strcmp(topic, "M5Stack/IIOT/AH/request/humidity")==0)
+    {
+      client.publish("M5Stack/IIOT/AH/humidity", String(getHumidity()).c_str());
+    }
 }
 void publishMeasurements()
 {
@@ -343,7 +372,7 @@ void publishMeasurements()
   sprintf(jsonStr, "{\"temp_LB\":%d,\"temp\":%.1f,\"temp_UB\":%d,\"pres_LB\":%d,\"pres\":%d,\"pres_UB\":%d,\"hum_LB\":%d,\"hum\":%d,\"hum_UB\":%d,",
   temp_LB,temp,temp_UB,pres_LB,pres,pres_UB,hum_LB,hum,hum_UB);
   String message = String(jsonStr) + hoursBuf + "," + tempsBuf + "," + pressuresBuf + "," + humsBuf + "}";
-  client.publish("pir/test/xd", message.c_str());
+  client.publish("M5Stack/IIOT/AH/all", message.c_str());
 
 }
 float getTemperature()
@@ -646,6 +675,42 @@ void writeMeasurements()
       humFile.close();
   }
 }
+bool setTLB(int val)
+{
+  if (val <= temp_UB-2 && val>=-40 && val<=120)
+  {temp_LB=val; writeTLB(val);return false;}
+  else {return true;} //true if error
+}
+bool setTUB(int val)
+{
+   if (val >= temp_LB+2 && val>=-40 && val<=120)
+  {temp_UB=val; writeTUB(val);return false;}
+  else {return true;} //true if error
+}
+bool setPLB(int val)
+{
+  if (val <= pres_UB-10 && val>=300 && val<=1100)
+  {pres_LB=val; writePLB(val);return false;}
+  else {return true;} //true if error
+}
+bool setPUB(int val)
+{
+  if (val >= pres_LB+10 && val>=300 && val<=1100)
+  {pres_UB=val; writePUB(val);return false;}
+  else {return true;} //true if error
+}
+bool setHLB(int val)
+{
+  if (val <= hum_UB-2 && val>=10 && val<=90)
+  {hum_LB=val; writeHLB(val);return false;}
+  else {return true;} //true if error
+}
+bool setHUB(int val)
+{
+   if (val >= hum_LB+2 && val>=10 && val<=90)
+  {hum_UB=val; writeHUB(val);return false;}
+  else {return true;} //true if error
+}
 void writeTLB(int val)
 {
   char buf [7];
@@ -886,9 +951,6 @@ void syncTime()
     setDate(timeinfo.tm_year+1900,timeinfo.tm_mon+1,timeinfo.tm_mday);
     setTime(timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
   }
-}
-void callback(char* topic, byte* payload, unsigned int length) {
-  //tu coś zrobić
 }
 int getY(int val, int minval, int unit, int ymin)
 {
@@ -1610,14 +1672,12 @@ void screen20()
   if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&focus) {drawScreen=1; timer2 = millis();}
     else if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&!focus) {menu_stan = 1; drawScreen=1; timer1=millis();timer2=0;}
     else if (M5.BtnA.wasPressed()) {
-      if (temp_LB-1 <= temp_UB-2 && temp_LB-1>=-40 && temp_LB-1<=120) {temp_LB--; writeTLB(temp_LB);error = false;}
-      else {error = true;}
+      error = setTLB(temp_LB-1);
       drawScreen=1; timer2 = millis();
       }
     else if (M5.BtnB.wasReleased()) {menu_stan = 14; drawScreen=1; timer2 = millis();}
     else if (M5.BtnC.wasPressed()) {
-      if (temp_LB+1 <= temp_UB-2 && temp_LB+1>=-40 && temp_LB+1<=120) {temp_LB++; writeTLB(temp_LB);error = false;}
-      else {error = true;}
+      error = setTLB(temp_LB+1);
       drawScreen=1; timer2 = millis();
       }
 }
@@ -1657,14 +1717,12 @@ void screen21()
   if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&focus) {drawScreen=1; timer2 = millis();}
     else if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&!focus) {menu_stan = 1; drawScreen=1; timer1=millis();timer2=0;}
     else if (M5.BtnA.wasPressed()) {
-      if (temp_UB-1 >= temp_LB+2 && temp_UB-1>=-40 && temp_UB-1<=120) {temp_UB--; writeTUB(temp_UB);error = false;}
-      else {error = true;}
+      error = setTUB(temp_UB-1);
       drawScreen=1; timer2 = millis();
       }
     else if (M5.BtnB.wasReleased()) {menu_stan = 15; drawScreen=1; timer2 = millis();}
     else if (M5.BtnC.wasPressed()) {
-      if (temp_UB+1 >= temp_LB+2 && temp_UB+1>=-40 && temp_UB+1<=120) {temp_UB++; writeTUB(temp_UB);error = false;}
-      else {error = true;}
+      error = setTUB(temp_UB+1);
       drawScreen=1; timer2 = millis();
       }
 }
@@ -1704,14 +1762,12 @@ void screen22()
   if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&focus) {drawScreen=1; timer2 = millis();}
     else if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&!focus) {menu_stan = 1; drawScreen=1; timer1=millis();timer2=0;}
     else if (M5.BtnA.wasPressed()) {
-      if (pres_LB-1 <= pres_UB-10 && pres_LB-1>=300 && pres_LB-1<=1100) {pres_LB--; writePLB(pres_LB);error = false;}
-      else {error = true;}
+      error = setPLB(pres_LB-1);
       drawScreen=1; timer2 = millis();
       }
     else if (M5.BtnB.wasReleased()) {menu_stan = 16; drawScreen=1; timer2 = millis();}
     else if (M5.BtnC.wasPressed()) {
-      if (pres_LB+1 <= pres_UB-10 && pres_LB+1>=300 && pres_LB+1<=1100) {pres_LB++; writePLB(pres_LB);error = false;}
-      else {error = true;}
+      error = setPLB(pres_LB+1);
       drawScreen=1; timer2 = millis();
       }
 }
@@ -1751,14 +1807,12 @@ void screen23()
   if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&focus) {drawScreen=1; timer2 = millis();}
     else if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&!focus) {menu_stan = 1; drawScreen=1; timer1=millis();timer2=0;}
     else if (M5.BtnA.wasPressed()) {
-      if (pres_UB-1 >= pres_LB+10 && pres_UB-1>=300 && pres_UB-1<=1100) {pres_UB--; writePUB(pres_UB);error = false;}
-      else {error = true;}
+      error = setPUB(pres_UB-1);
       drawScreen=1; timer2 = millis();
       }
     else if (M5.BtnB.wasReleased()) {menu_stan = 17; drawScreen=1; timer2 = millis();}
     else if (M5.BtnC.wasPressed()) {
-      if (pres_UB-1 >= pres_LB+10 && pres_UB+1>=300 && pres_UB+1<=1100) {pres_UB++; writePUB(pres_UB);error = false;}
-      else {error = true;}
+      error = setPUB(pres_UB+1);
       drawScreen=1; timer2 = millis();
       }
 }
@@ -1798,14 +1852,12 @@ void screen24()
   if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&focus) {drawScreen=1; timer2 = millis();}
     else if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&!focus) {menu_stan = 1; drawScreen=1; timer1=millis();timer2=0;}
     else if (M5.BtnA.wasPressed()) {
-      if (hum_LB-1 <= hum_UB-2 && hum_LB-1>=10 && hum_LB-1<=90) {hum_LB--; writeHLB(hum_LB);error = false;}
-      else {error = true;}
+      error = setHLB(hum_LB-1);
       drawScreen=1; timer2 = millis();
       }
     else if (M5.BtnB.wasReleased()) {menu_stan = 18; drawScreen=1; timer2 = millis();}
     else if (M5.BtnC.wasPressed()) {
-      if (hum_LB+1 <= hum_UB-2 && hum_LB+1>=10 && hum_LB+1<=90) {hum_LB++; writeHLB(hum_LB);error = false;}
-      else {error = true;}
+      error = setHLB(hum_LB+1);
       drawScreen=1; timer2 = millis();
       }
 }
@@ -1845,14 +1897,12 @@ void screen25()
   if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&focus) {drawScreen=1; timer2 = millis();}
     else if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&!focus) {menu_stan = 1; drawScreen=1; timer1=millis();timer2=0;}
     else if (M5.BtnA.wasPressed()) {
-      if (hum_UB-1 >= hum_LB+2 && hum_UB-1>=10 && hum_UB-1<=90) {hum_UB--; writeHUB(hum_UB);error = false;}
-      else {error = true;}
+      error = setHUB(hum_UB-1);
       drawScreen=1; timer2 = millis();
       }
     else if (M5.BtnB.wasReleased()) {menu_stan = 19; drawScreen=1; timer2 = millis();}
     else if (M5.BtnC.wasPressed()) {
-      if (hum_UB+1 >= hum_LB+2 && hum_UB+1>=10 && hum_UB+1<=90) {hum_UB++; writeHUB(hum_UB);error = false;}
-      else {error = true;}
+      error = setHUB(hum_UB+1);
       drawScreen=1; timer2 = millis();
       }
 }

@@ -22,7 +22,7 @@ private:
     bool status;
     std::string SERVER_ADDRESS = "broker.mqttdashboard.com";
     std::string CLIENT_ID =  "pirtesterxd";
-    std::string TOPIC = "pir/test/xd";
+    std::string TOPIC = "M5Stack/IIOT/AH/all";
     const int  QOS = 1;
 
 };
