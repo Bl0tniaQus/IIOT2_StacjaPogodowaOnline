@@ -8,5 +8,6 @@ int main(int argc, char *argv[])
     return app.exec();
 }
 //todo
-//m5 owm jak starczy czasu
-//m5 "api", remote configs
+//posprzątać śmieci, filtrowanie subskrybcji
+//gui do konfigów
+//reconnect

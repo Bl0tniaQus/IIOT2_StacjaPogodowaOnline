@@ -10,20 +10,25 @@ Desktop_App::Desktop_App(QWidget *parent) :
     findChild<QChartView*>("presChart")->setVisible(false);
     findChild<QChartView*>("humChart")->setVisible(false);
     connect(findChild<QPushButton*>("reconnectButton"), &QPushButton::released, this, &Desktop_App::startMqttThread);
+    connect(findChild<QPushButton*>("updateButton"), &QPushButton::released, mqttController.getPublisher(), &Publisher::requestUpdate);
     connect(&mqttController, &Mqtt_Controller::clientDisconnected, this, &Desktop_App::startMqttThread);
     connect(&mqttController, &Mqtt_Controller::clientConnected, this, &Desktop_App::connectionLabelTrue);
     startMqttThread();
 }
 void Desktop_App::startMqttThread()
 {
-    QLabel* connectionLabel = findChild<QLabel*>("connectionLabel");
-    connectionLabel->setText("disconnected");
-    mqttThread.exit();
-    connect(this, &Desktop_App::startMqtt, &mqttController, &Mqtt_Controller::mqttClient);
-    connect(&mqttController, &Mqtt_Controller::sendMqttMessage, this, &Desktop_App::receiveMqttMessage);
-    mqttController.moveToThread(&mqttThread);
-    mqttThread.start();
+    //QLabel* connectionLabel = findChild<QLabel*>("connectionLabel");
+   // connectionLabel->setText("disconnected");
+    //mqttControllerThread.exit();
+    qDebug("XD");
+    connect(this, &Desktop_App::startMqtt, mqttController.getSubscriber(), &Subscriber::subscribe);
+    connect(mqttController.getSubscriber(), &Subscriber::sendMqttMessage, this, &Desktop_App::receiveMqttMessage);
+    mqttController.moveToThread(&mqttControllerThread);
+    mqttControllerThread.start();
     emit startMqtt();
+
+
+
 }
 Desktop_App::~Desktop_App() = default;
 void Desktop_App::connectionLabelTrue()
