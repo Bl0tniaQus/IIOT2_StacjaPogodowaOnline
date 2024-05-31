@@ -28,6 +28,8 @@ int hum_UB,hum_LB,pres_UB,pres_LB;
 int brightness;
 int prevBound;
 int focus;
+int timeSync;
+int onlineMode;
 bool error;
 bool reset_confirm;
 bool is_connected;
@@ -53,7 +55,7 @@ int* hours; //godziny pomiarów
 char buf [100];
 void setupWifi();
 void mqttConnect();
-void publishMeasurements();
+void publishAll();
 int getPressure();
 float getTemperature();
 int getHumidity();
@@ -73,12 +75,15 @@ void readHours();
 void readTemps();
 void readPressures();
 void readHumidities();
-bool checkFiles();
 void writeMeasurements();
 void writeBrightness(int val);
 void writeFocus(char val);
+void writeTimeSync(char val);
+void writeOnlineMode(char val);
 void readBrightness();
 void readFocus();
+void readTimeSync();
+void readOnlineMode();
 bool setTLB(int val);
 bool setTUB(int val);
 bool setPLB(int val);
@@ -95,6 +100,7 @@ void readBounds();
 void factoryReset();
 void forecast();
 void syncTime();
+int processPayload(byte* payload, unsigned int length);
 int getY(int val, int minval, int unit, int ymin);
 //ekrany główne
 void screen1(); //data i czas
@@ -114,6 +120,8 @@ void screen11(); //menu ustawien czas
 void screen12(); //menu ustawien progi
 void screen45(); //menu ustawien jasnosc
 void screen51(); //menu ustawien tryb skupienia
+void screen53(); //menu ustawien tryb online
+void screen54(); //menu ustawien synchronizacja czasu
 void screen49(); //menu ustawien reset
 //ekran ustawienia jasnosci
 void screen50();
@@ -170,16 +178,18 @@ void setup() {
   M5.Lcd.setTextSize(3);
   M5.Lcd.drawString("Loading...",160,120,2);
   M5.Axp.SetSpkEnable(0);
-  is_connected = false;
-  setupWifi();
-  mqttConnect();
-  if (is_connected) {syncTime();}
   SD.begin();
-  qmp6988.init();
   readBrightness();
   readFocus();
+  readOnlineMode();
+  readTimeSync();
+  is_connected = false;
+  if (onlineMode)
+  {setupWifi();
+  mqttConnect();}
+  if (timeSync&&is_connected) {syncTime();}
+  qmp6988.init();
   M5.Axp.SetLcdVoltage(2500 + 100*brightness);
-  M5.Axp.SetSpkEnable(0);
   readBounds();
   temps = new float[0];
   pressures = new int[0];
@@ -187,7 +197,6 @@ void setup() {
   hours = new int[0];
   timer1 = millis();
   timer3 = millis();
-  //publishMeasurements();
 }
 //prognoza, komentarze
 void loop() {
@@ -201,7 +210,7 @@ void loop() {
   if (getMinutes()+1%15==0&&!connection_tested) {fifteen_minutes_passed=true;}
   else if(getMinutes()+1%15!=0){connection_tested = false;}
   
-  if (fifteen_minutes_passed)
+  if (fifteen_minutes_passed&&onlineMode)
   {
     if (!is_connected) {setupWifi();}
     if (!client.connected()) { mqttConnect(); }
@@ -215,9 +224,9 @@ void loop() {
     writeMeasurements();
     hour_passed=false;
 
-    if (is_connected)
+    if (is_connected&&onlineMode)
     {
-      publishMeasurements();
+      publishAll();
       syncTime();
     }
     measurements_written = true;
@@ -280,6 +289,8 @@ void loop() {
   case 50:screen50();break;
   case 51:screen51();break;
   case 52:screen52();break;
+  case 53:screen53();break;
+  case 54:screen54();break;
   }
   client.loop();
 }
@@ -313,11 +324,21 @@ void mqttConnect()
       tries++;  }
   } 
 }
+int processPayload(byte* payload, unsigned int length)
+{
+      char buf[length+1];
+      for (int i=0;i<length;i++)
+      {
+        buf[i] = (char)payload[i];
+      }
+      drawScreen++;
+      return atoi(buf);
+}
 void callback(char* topic, byte* payload, unsigned int length) 
 {
   if (strcmp(topic, "M5Stack/IIOT/AH/request/all")==0)
     {
-      publishMeasurements();
+      publishAll();
     }
   if (strcmp(topic, "M5Stack/IIOT/AH/request/temperature")==0)
     {
@@ -331,14 +352,60 @@ void callback(char* topic, byte* payload, unsigned int length)
     {
       client.publish("M5Stack/IIOT/AH/humidity", String(getHumidity()).c_str());
     }
+    if (strcmp(topic, "M5Stack/IIOT/AH/request/datetime")==0)
+    {
+      char datetimebuf[30];
+      int hours = getHours(); int minutes = getMinutes();
+      int day = getDay(); int month = getMonth(); int year = getYear();
+      char time_buf[10]; char hours_buf[5]; char minutes_buf[5];
+      char date_buf[15]; char month_buf[5]; char day_buf[5]; char year_buf[5];
+      if (minutes<10) {sprintf(minutes_buf,"0%d", minutes);}
+      else {sprintf(minutes_buf,"%d", minutes);}
+      if (hours<10) {sprintf(hours_buf,"0%d:", hours);}
+      else {sprintf(hours_buf,"%d:", hours);}
+      if (day<10) {sprintf(day_buf," 0%d.", day);}
+      else {sprintf(day_buf," %d.", day);}
+      if (month<10) {sprintf(month_buf,"0%d.", month);}
+      else {sprintf(month_buf,"%d.", month);}
+      sprintf(year_buf,"%d",year);
+      strcpy(time_buf,hours_buf);strcat(time_buf,minutes_buf);
+      strcpy(date_buf,day_buf);strcat(date_buf,month_buf);strcat(date_buf,year_buf);
+      strcpy(datetimebuf,time_buf); strcat(datetimebuf,date_buf);
+      client.publish("M5Stack/IIOT/AH/time", datetimebuf);
+    }
+    if (strcmp(topic, "M5Stack/IIOT/AH/set/temp/lb")==0)
+    {
+      setTLB(processPayload(payload,length));
+    }
+    if (strcmp(topic, "M5Stack/IIOT/AH/set/temp/ub")==0)
+    {
+      setTUB(processPayload(payload,length));
+    }
+    if (strcmp(topic, "M5Stack/IIOT/AH/set/pressure/lb")==0)
+    {
+      setPLB(processPayload(payload,length));
+    }
+    if (strcmp(topic, "M5Stack/IIOT/AH/set/pressure/ub")==0)
+    {
+      setPUB(processPayload(payload,length));
+    }
+    if (strcmp(topic, "M5Stack/IIOT/AH/set/humidity/lb")==0)
+    {
+      setHLB(processPayload(payload,length));
+    }
+    if (strcmp(topic, "M5Stack/IIOT/AH/set/humidity/ub")==0)
+    {
+      setHUB(processPayload(payload,length));
+    }
 }
-void publishMeasurements()
+void publishAll()
 {
   if (!client.connected()) {return;}
   char jsonStr [2048];
   float temp = getTemperature();
   int pres = getPressure();
   int hum = getHumidity();
+  int hour = getHours(); int minutes = getMinutes(); int seconds = getSeconds();
   readTemps();
   readHours();
   readPressures();
@@ -442,8 +509,9 @@ void showBatteryLevelAndNetworkStatus()
     percentage = (voltage - 3.2) * 100;
     }
   char battery_buf[10];
-  if (is_connected) {sprintf(battery_buf,"C|%d%%",(int)round(percentage));}
-  else {sprintf(battery_buf,"DC|%d%%",(int)round(percentage));}
+  if (onlineMode!=1) {sprintf(battery_buf,"X|%d%%",(int)round(percentage));}
+  else if (is_connected&&onlineMode==1) {sprintf(battery_buf,"C|%d%%",(int)round(percentage));}
+  else if (!is_connected&&onlineMode==1){sprintf(battery_buf,"DC|%d%%",(int)round(percentage));}
   
   M5.Lcd.setTextColor(WHITE,BLUE);
   M5.Lcd.setTextSize(2);
@@ -775,6 +843,22 @@ void writeFocus(char val)
   file.print(buf);
   file.close();
 }
+void writeTimeSync(char val)
+{
+  char buf [7];
+  File file = SD.open("/timesync.txt",FILE_WRITE);
+  sprintf(buf, "%d",val);
+  file.print(buf);
+  file.close();
+}
+void writeOnlineMode(char val)
+{
+  char buf [7];
+  File file = SD.open("/onlinemode.txt",FILE_WRITE);
+  sprintf(buf, "%d",val);
+  file.print(buf);
+  file.close();
+}
 void readBrightness()
 {
   char digits[7];
@@ -830,6 +914,62 @@ void readFocus()
   }else {writeFocus(0); val = 0;}
   if (!(val==1 || val==0)) {val = 0; writeFocus(0);}
   focus = val;
+}
+void readTimeSync()
+{
+  char digits[7];
+  int n = 0;
+  int val = 0;
+  if (SD.exists("/timesync.txt"))
+  {
+    File f = SD.open("/timesync.txt");
+      char znak;
+      while (f.available()){
+      znak = f.read();
+      if (znak!='\n'&&znak!='\0')
+      {
+        digits[n] = (char)znak;
+        n++;
+      }
+      else 
+      {
+        val = atoi(digits);
+        break;
+      }
+      }
+      val = atoi(digits);
+      f.close();
+  }else {writeTimeSync(0); val = 0;}
+  if (!(val==1 || val==0)) {val = 0; writeTimeSync(0);}
+  timeSync = val;
+}
+void readOnlineMode()
+{
+  char digits[7];
+  int n = 0;
+  int val = 0;
+  if (SD.exists("/onlinemode.txt"))
+  {
+    File f = SD.open("/onlinemode.txt");
+      char znak;
+      while (f.available()){
+      znak = f.read();
+      if (znak!='\n'&&znak!='\0')
+      {
+        digits[n] = (char)znak;
+        n++;
+      }
+      else 
+      {
+        val = atoi(digits);
+        break;
+      }
+      }
+      val = atoi(digits);
+      f.close();
+  }else {writeOnlineMode(0); val = 0;}
+  if (!(val==1 || val==0)) {val = 0; writeOnlineMode(0);}
+  onlineMode = val;
 }
 int readBound(const char* filename)
 {
@@ -891,12 +1031,16 @@ void factoryReset()
   SD.remove("/pres_ub.txt");
   SD.remove("/brightness.txt");
   SD.remove("/focus.txt");
+  SD.remove("/timesync.txt");
+  SD.remove("/onlinemode.txt");
   delete [] pressures; delete [] hours; delete [] temps; delete [] humidities;
   n_hours = 0; n_temps = 0; n_pressures = 0; n_humidities = 0;
   pressures = new int [0]; hours = new int [0]; temps = new float [0]; humidities = new int [0];
   readBounds();
   readBrightness();
   readFocus();
+  readTimeSync();
+  readOnlineMode();
   setDate(2023,9,15); 
   setTime(10, 49, 0);
   M5.Axp.SetLcdVoltage(2500 + 100*brightness);
@@ -943,6 +1087,9 @@ void forecast()
 }
 void syncTime()
 {
+  if (is_connected)
+  {
+  M5.Lcd.drawString("syncing time...",160,0,2);
   configTime(gmtOffset_sec, daylightOffset_sec, ntp_server);
   struct tm timeinfo;
   if (getLocalTime(&timeinfo))
@@ -950,6 +1097,7 @@ void syncTime()
     timeinfo.tm_hour;
     setDate(timeinfo.tm_year+1900,timeinfo.tm_mon+1,timeinfo.tm_mday);
     setTime(timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
+  }
   }
 }
 int getY(int val, int minval, int unit, int ymin)
@@ -1388,6 +1536,66 @@ void screen51()
     else if (M5.BtnB.wasReleased()) {
       focus = !focus; writeFocus(focus); drawScreen=1; timer2 = millis();
       }
+    else if (M5.BtnC.wasPressed()) {menu_stan = 53; drawScreen=1; timer2 = millis();}
+}
+void screen53()
+{
+  if (drawScreen) {
+    drawScreen--;
+    M5.Lcd.fillScreen(BLACK);
+    showBatteryLevelAndNetworkStatus();
+    M5.Lcd.setTextColor(WHITE);
+    M5.Lcd.setTextDatum(MC_DATUM);
+    M5.Lcd.setTextColor(WHITE);
+    M5.Lcd.setTextSize(3);
+    M5.Lcd.drawString("Online",160,60,4);
+    M5.Lcd.drawString("mode",160,120,4);
+    M5.Lcd.setTextSize(1);
+    if (onlineMode) {M5.Lcd.drawString("[ON]",160,175,4);}
+    else if (!onlineMode) {M5.Lcd.drawString("[OFF]",160,175,4);}
+    M5.Lcd.setTextDatum(BL_DATUM);
+    M5.Lcd.drawString("<",45,240,4);
+    M5.Lcd.setTextDatum(BC_DATUM);
+    M5.Lcd.drawString("OK",160,240,4);
+    M5.Lcd.setTextDatum(BR_DATUM);
+    M5.Lcd.drawString(">",275,240,4);
+    }
+    if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&focus) {drawScreen=1; timer2 = millis();}
+    else if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&!focus) {menu_stan = 1; drawScreen=1; timer1=millis();timer2=0;}
+    else if (M5.BtnA.wasPressed()) {menu_stan = 51; drawScreen=1; timer2 = millis();}
+    else if (M5.BtnB.wasReleased()) {
+      onlineMode = !onlineMode; writeOnlineMode(onlineMode); setupWifi(); mqttConnect(); drawScreen=1; timer2 = millis();
+      }
+    else if (M5.BtnC.wasPressed()) {menu_stan = 54; drawScreen=1; timer2 = millis();}
+}
+void screen54()
+{
+  if (drawScreen) {
+    drawScreen--;
+    M5.Lcd.fillScreen(BLACK);
+    showBatteryLevelAndNetworkStatus();
+    M5.Lcd.setTextColor(WHITE);
+    M5.Lcd.setTextDatum(MC_DATUM);
+    M5.Lcd.setTextColor(WHITE);
+    M5.Lcd.setTextSize(3);
+    M5.Lcd.drawString("Auto time",160,60,4);
+    M5.Lcd.drawString("sync",160,120,4);
+    M5.Lcd.setTextSize(1);
+    if (timeSync) {M5.Lcd.drawString("[ON]",160,175,4);}
+    else if (!timeSync) {M5.Lcd.drawString("[OFF]",160,175,4);}
+    M5.Lcd.setTextDatum(BL_DATUM);
+    M5.Lcd.drawString("<",45,240,4);
+    M5.Lcd.setTextDatum(BC_DATUM);
+    M5.Lcd.drawString("OK",160,240,4);
+    M5.Lcd.setTextDatum(BR_DATUM);
+    M5.Lcd.drawString(">",275,240,4);
+    }
+    if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&focus) {drawScreen=1; timer2 = millis();}
+    else if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&!focus) {menu_stan = 1; drawScreen=1; timer1=millis();timer2=0;}
+    else if (M5.BtnA.wasPressed()) {menu_stan = 53; drawScreen=1; timer2 = millis();}
+    else if (M5.BtnB.wasReleased()) {
+      timeSync = !timeSync; writeTimeSync(timeSync); syncTime();drawScreen=1; timer2 = millis();
+      }
     else if (M5.BtnC.wasPressed()) {menu_stan = 49; drawScreen=1; timer2 = millis();}
 }
 void screen49()
@@ -1414,7 +1622,7 @@ void screen49()
     }
     if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&focus) {drawScreen=1; timer2 = millis();}
     else if (((millis()-timer2>=timerLimit2)||(millis()-timer2<0))&&!focus) {menu_stan = 1; drawScreen=1; timer1=millis();timer2=0;}
-    else if (M5.BtnA.wasPressed()) {menu_stan = 52; drawScreen=1; timer2 = millis();}
+    else if (M5.BtnA.wasPressed()) {menu_stan = 54; drawScreen=1; timer2 = millis();}
     else if (M5.BtnB.wasReleased()) {
 
       if (!reset_confirm) {reset_confirm = true;}
