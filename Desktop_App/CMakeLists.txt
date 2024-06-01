@@ -20,6 +20,7 @@ set(desktop_app_SRC
   src/mqtt_controller.cpp
   src/subscriber.cpp
   src/publisher.cpp
+  src/connection_manager.cpp
 )
 
 # Tell CMake to create the helloworld executable

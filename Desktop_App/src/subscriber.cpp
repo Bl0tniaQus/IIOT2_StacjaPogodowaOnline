@@ -13,32 +13,25 @@ void Subscriber::subscribe()
 	try {
 		client->start_consuming();
 		client->subscribe(topic, 1)->wait();
-		if (client->is_connected()) {/*emit clientConnected();*/}
+		auto msg = mqtt::make_message("M5Stack/IIOT/AH/request/all", "1",1, false);
+		client->publish(msg);
 		while (true) {
-			//status = true;
-			//emit clientConnected();
+			subscribing = 1;
 			auto msg = client->consume_message();
-			if (!msg) break;
-			if (!client->is_connected()) {/*emit clientDisconnected();*/}
+			if (!msg) {break;}
 			emit sendMqttMessage(checkJson(msg->to_string()));
 		}
 		if (client->is_connected()) {
 			client->unsubscribe(topic)->wait();
 			client->stop_consuming();
 			client->disconnect()->wait();
-			//status=false;
-			//emit clientDisconnected();
+		}
 
-		}
-		else {
-			//status=false;
-			//emit clientDisconnected();
-		}
 	}
 	catch (const mqtt::exception& exc) {
         std::cerr << "\n  " << exc << std::endl;
 	}
-
+subscribing = 0;
 }
 
 QString Subscriber::checkJson(std::string jsonStr)

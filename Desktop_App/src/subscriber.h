@@ -10,6 +10,7 @@ class Subscriber : public QObject
     public:
         Subscriber();
         void setClient(mqtt::async_client* cli);
+        char getSubscribingStatus() {return subscribing;}
     public slots:
         void subscribe();
     signals:
@@ -17,6 +18,7 @@ class Subscriber : public QObject
     private:
         mqtt::async_client* client;
         QString checkJson(std::string jsonStr);
-        std::string topic = "M5Stack/IIOT/AH/#";
+        std::string topic = "M5Stack/IIOT/AH/+";
+        char subscribing;
     };
 #endif

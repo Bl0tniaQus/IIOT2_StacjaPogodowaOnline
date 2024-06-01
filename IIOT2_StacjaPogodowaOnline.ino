@@ -373,29 +373,35 @@ void callback(char* topic, byte* payload, unsigned int length)
       strcpy(datetimebuf,time_buf); strcat(datetimebuf,date_buf);
       client.publish("M5Stack/IIOT/AH/time", datetimebuf);
     }
-    if (strcmp(topic, "M5Stack/IIOT/AH/set/temp/lb")==0)
+    if (strcmp(topic, "M5Stack/IIOT/AH/set/temperature/lb")==0)
     {
       setTLB(processPayload(payload,length));
+      publishAll();
     }
-    if (strcmp(topic, "M5Stack/IIOT/AH/set/temp/ub")==0)
+    if (strcmp(topic, "M5Stack/IIOT/AH/set/temperature/ub")==0)
     {
       setTUB(processPayload(payload,length));
+      publishAll();
     }
     if (strcmp(topic, "M5Stack/IIOT/AH/set/pressure/lb")==0)
     {
       setPLB(processPayload(payload,length));
+      publishAll();
     }
     if (strcmp(topic, "M5Stack/IIOT/AH/set/pressure/ub")==0)
     {
       setPUB(processPayload(payload,length));
+      publishAll();
     }
     if (strcmp(topic, "M5Stack/IIOT/AH/set/humidity/lb")==0)
     {
       setHLB(processPayload(payload,length));
+      publishAll();
     }
     if (strcmp(topic, "M5Stack/IIOT/AH/set/humidity/ub")==0)
     {
       setHUB(processPayload(payload,length));
+      publishAll();
     }
 }
 void publishAll()

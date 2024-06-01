@@ -9,19 +9,35 @@ Desktop_App::Desktop_App(QWidget *parent) :
     findChild<QChartView*>("tempChart")->setVisible(false);
     findChild<QChartView*>("presChart")->setVisible(false);
     findChild<QChartView*>("humChart")->setVisible(false);
-    connect(findChild<QPushButton*>("reconnectButton"), &QPushButton::released, this, &Desktop_App::startMqttThread);
-    connect(findChild<QPushButton*>("updateButton"), &QPushButton::released, mqttController.getPublisher(), &Publisher::requestUpdate);
-    connect(&mqttController, &Mqtt_Controller::clientDisconnected, this, &Desktop_App::startMqttThread);
-    connect(&mqttController, &Mqtt_Controller::clientConnected, this, &Desktop_App::connectionLabelTrue);
+    Publisher* pub = mqttController.getPublisher();
+    connect(findChild<QPushButton*>("updateButton"), &QPushButton::released, pub, &Publisher::requestUpdate);
+
+    connect(findChild<QPushButton*>("tempLBButton"), &QPushButton::released, this, &Desktop_App::requestTLBChange);
+    connect(this, &Desktop_App::emitTLB, pub, &Publisher::changeTLB);
+    connect(findChild<QPushButton*>("tempUBButton"), &QPushButton::released, this, &Desktop_App::requestTUBChange);
+    connect(this, &Desktop_App::emitTUB, pub, &Publisher::changeTUB);
+
+    connect(findChild<QPushButton*>("presLBButton"), &QPushButton::released, this, &Desktop_App::requestPLBChange);
+    connect(this, &Desktop_App::emitPLB, pub, &Publisher::changePLB);
+    connect(findChild<QPushButton*>("presUBButton"), &QPushButton::released, this, &Desktop_App::requestPUBChange);
+    connect(this, &Desktop_App::emitPUB, pub, &Publisher::changePUB);
+
+    connect(findChild<QPushButton*>("humLBButton"), &QPushButton::released, this, &Desktop_App::requestHLBChange);
+    connect(this, &Desktop_App::emitHLB, pub, &Publisher::changeHLB);
+    connect(findChild<QPushButton*>("humUBButton"), &QPushButton::released, this, &Desktop_App::requestHUBChange);
+    connect(this, &Desktop_App::emitHUB, pub, &Publisher::changeHUB);
+    connect(mqttController.getManager(), &Connection_Manager::disconnected, this, &Desktop_App::connectionLabelFalse);
+    connect(mqttController.getManager(), &Connection_Manager::connected, this, &Desktop_App::connectionLabelTrue);
+    connect(&mqttController, &Mqtt_Controller::disconnected, this, &Desktop_App::connectionLabelFalse);
+    connect(&mqttController, &Mqtt_Controller::connected, this, &Desktop_App::connectionLabelTrue);
     startMqttThread();
 }
 void Desktop_App::startMqttThread()
 {
-    //QLabel* connectionLabel = findChild<QLabel*>("connectionLabel");
-   // connectionLabel->setText("disconnected");
-    //mqttControllerThread.exit();
-    qDebug("XD");
+
     connect(this, &Desktop_App::startMqtt, mqttController.getSubscriber(), &Subscriber::subscribe);
+    connect(mqttController.getManager(),&Connection_Manager::subscribeSignal, mqttController.getSubscriber(), &Subscriber::subscribe);
+    connect(this, &Desktop_App::startMqtt, mqttController.getManager(), &Connection_Manager::checkConnection);
     connect(mqttController.getSubscriber(), &Subscriber::sendMqttMessage, this, &Desktop_App::receiveMqttMessage);
     mqttController.moveToThread(&mqttControllerThread);
     mqttControllerThread.start();
@@ -36,7 +52,11 @@ void Desktop_App::connectionLabelTrue()
     QLabel* connectionLabel = findChild<QLabel*>("connectionLabel");
     connectionLabel->setText("connected");
 }
-
+void Desktop_App::connectionLabelFalse()
+{
+    QLabel* connectionLabel = findChild<QLabel*>("connectionLabel");
+    connectionLabel->setText("disconnected");
+}
 void Desktop_App::receiveMqttMessage(QString message)
 {
     json jsonMsg = json::parse(message.toStdString());
@@ -329,6 +349,36 @@ void Desktop_App::drawPresChart(std::vector<short> h, std::vector<short> t, int 
     QChartView* wykres = findChild<QChartView*>("presChart");
     wykres->setChart(chart);
     wykres->setVisible(true);
+}
+void Desktop_App::requestTLBChange()
+{
+    int val = findChild<QLineEdit*>("configEdit")->text().toInt();
+    emit emitTLB(val);
+}
+void Desktop_App::requestTUBChange()
+{
+    int val = findChild<QLineEdit*>("configEdit")->text().toInt();
+    emit emitTUB(val);
+}
+void Desktop_App::requestPLBChange()
+{
+    int val = findChild<QLineEdit*>("configEdit")->text().toInt();
+    emit emitPLB(val);
+}
+void Desktop_App::requestPUBChange()
+{
+    int val = findChild<QLineEdit*>("configEdit")->text().toInt();
+    emit emitPUB(val);
+}
+void Desktop_App::requestHLBChange()
+{
+    int val = findChild<QLineEdit*>("configEdit")->text().toInt();
+    emit emitHLB(val);
+}
+void Desktop_App::requestHUBChange()
+{
+    int val = findChild<QLineEdit*>("configEdit")->text().toInt();
+    emit emitHUB(val);
 }
 
 
