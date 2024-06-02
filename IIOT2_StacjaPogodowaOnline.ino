@@ -376,32 +376,26 @@ void callback(char* topic, byte* payload, unsigned int length)
     if (strcmp(topic, "M5Stack/IIOT/AH/set/temperature/lb")==0)
     {
       setTLB(processPayload(payload,length));
-      publishAll();
     }
     if (strcmp(topic, "M5Stack/IIOT/AH/set/temperature/ub")==0)
     {
       setTUB(processPayload(payload,length));
-      publishAll();
     }
     if (strcmp(topic, "M5Stack/IIOT/AH/set/pressure/lb")==0)
     {
       setPLB(processPayload(payload,length));
-      publishAll();
     }
     if (strcmp(topic, "M5Stack/IIOT/AH/set/pressure/ub")==0)
     {
       setPUB(processPayload(payload,length));
-      publishAll();
     }
     if (strcmp(topic, "M5Stack/IIOT/AH/set/humidity/lb")==0)
     {
       setHLB(processPayload(payload,length));
-      publishAll();
     }
     if (strcmp(topic, "M5Stack/IIOT/AH/set/humidity/ub")==0)
     {
       setHUB(processPayload(payload,length));
-      publishAll();
     }
 }
 void publishAll()
