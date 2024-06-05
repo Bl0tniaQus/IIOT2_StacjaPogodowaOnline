@@ -29,8 +29,8 @@ void Connection_Manager::checkConnection()
 		else if (!client->is_connected())
 		{
 			emit disconnected();
-			auto connOpts = mqtt::connect_options_builder().clean_session(true).finalize();
-			auto tok = client->connect(connOpts);
+			mqtt::connect_options connOpts = mqtt::connect_options_builder().clean_session(true).finalize();
+			mqtt::token_ptr tok = client->connect(connOpts);
 			//auto rsp = tok->get_connect_response();
 		}
 	}

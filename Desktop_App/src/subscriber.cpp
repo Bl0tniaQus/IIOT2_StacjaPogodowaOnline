@@ -13,11 +13,11 @@ void Subscriber::subscribe()
 	try {
 		client->start_consuming();
 		client->subscribe(topic, 1)->wait();
-		auto msg = mqtt::make_message("M5Stack/IIOT/AH/request/all", "1",1, false);
+		mqtt::message_ptr msg = mqtt::make_message("M5Stack/IIOT/AH/request/all", "1",1, false);
 		client->publish(msg);
 		while (true) {
 			subscribing = 1;
-			auto msg = client->consume_message();
+			mqtt::const_message_ptr msg = client->consume_message();
 			if (!msg) {break;}
 			emit sendMqttMessage(checkJson(msg->to_string()));
 		}
