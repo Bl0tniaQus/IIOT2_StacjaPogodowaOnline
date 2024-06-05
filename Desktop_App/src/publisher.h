@@ -19,6 +19,7 @@ class Publisher : public QObject
 
         private:
             mqtt::async_client* client;
+            mqtt::message_ptr requestAllMessage;
     };
 #endif
 

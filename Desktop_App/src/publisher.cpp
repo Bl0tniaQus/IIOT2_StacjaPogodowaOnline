@@ -1,7 +1,7 @@
 #include "publisher.h"
 Publisher::Publisher()
 {
-
+    requestAllMessage = mqtt::make_message("M5Stack/IIOT/AH/request/all", "1",1, false);
 }
 void Publisher::setClient(mqtt::async_client* cli)
 {
@@ -10,37 +10,44 @@ void Publisher::setClient(mqtt::async_client* cli)
 
 void Publisher::requestUpdate()
 {
-    auto msg = mqtt::make_message("M5Stack/IIOT/AH/request/all", "1",1, false);
+    mqtt::message_ptr msg = mqtt::make_message("M5Stack/IIOT/AH/request/all", "1",1, false);
     client->publish(msg);
+    client->publish(requestAllMessage);
 }
 void Publisher::changeTLB(int val)
 {
-    auto msg = mqtt::make_message("M5Stack/IIOT/AH/set/temperature/lb", std::to_string(val),1, false);
+    mqtt::message_ptr msg = mqtt::make_message("M5Stack/IIOT/AH/set/temperature/lb", std::to_string(val),1, false);
     client->publish(msg);
+    client->publish(requestAllMessage);
 }
 void Publisher::changeTUB(int val)
 {
-    auto msg = mqtt::make_message("M5Stack/IIOT/AH/set/temperature/ub", std::to_string(val),1, false);
+    mqtt::message_ptr msg = mqtt::make_message("M5Stack/IIOT/AH/set/temperature/ub", std::to_string(val),1, false);
     client->publish(msg);
+    client->publish(requestAllMessage);
 }
 void Publisher::changePLB(int val)
 {
-    auto msg = mqtt::make_message("M5Stack/IIOT/AH/set/pressure/lb", std::to_string(val),1, false);
+    mqtt::message_ptr msg = mqtt::make_message("M5Stack/IIOT/AH/set/pressure/lb", std::to_string(val),1, false);
     client->publish(msg);
+    client->publish(requestAllMessage);
 }
 void Publisher::changePUB(int val)
 {
-    auto msg = mqtt::make_message("M5Stack/IIOT/AH/set/pressure/ub", std::to_string(val),1, false);
+    mqtt::message_ptr msg = mqtt::make_message("M5Stack/IIOT/AH/set/pressure/ub", std::to_string(val),1, false);
     client->publish(msg);
+    client->publish(requestAllMessage);
 }
 void Publisher::changeHLB(int val)
 {
-    auto msg = mqtt::make_message("M5Stack/IIOT/AH/set/humidity/lb", std::to_string(val),1, false);
+    mqtt::message_ptr msg = mqtt::make_message("M5Stack/IIOT/AH/set/humidity/lb", std::to_string(val),1, false);
     client->publish(msg);
+    client->publish(requestAllMessage);
 }
 void Publisher::changeHUB(int val)
 {
-    auto msg = mqtt::make_message("M5Stack/IIOT/AH/set/humidity/ub", std::to_string(val),1, false);
+    mqtt::message_ptr msg = mqtt::make_message("M5Stack/IIOT/AH/set/humidity/ub", std::to_string(val),1, false);
     client->publish(msg);
+    client->publish(requestAllMessage);
 }
 

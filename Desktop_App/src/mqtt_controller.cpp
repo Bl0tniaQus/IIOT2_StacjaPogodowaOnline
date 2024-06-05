@@ -3,9 +3,8 @@ std::string Mqtt_Controller::SERVER_ADDRESS = "broker.mqttdashboard.com";
 std::string Mqtt_Controller::CLIENT_ID = "M5StackAH";
 Mqtt_Controller::Mqtt_Controller():cli(SERVER_ADDRESS,CLIENT_ID)
 {
-		auto connOpts = mqtt::connect_options_builder().clean_session(true).finalize();
-		auto tok = cli.connect(connOpts);
-		//auto rsp = tok->get_connect_response();
+		mqtt::connect_options connOpts = mqtt::connect_options_builder().clean_session(true).finalize();
+		mqtt::token_ptr tok = cli.connect(connOpts);
 		subscriber.setClient(&cli);
 		publisher.setClient(&cli);
 		manager.setClient(&cli);
