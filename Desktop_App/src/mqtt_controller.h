@@ -18,6 +18,8 @@ public:
     Subscriber* getSubscriber() {return &subscriber;}
     Connection_Manager* getManager() {return &manager;}
     void checkConnection();
+    std::string getTopicPrefix() {return TOPIC_PREFIX;}
+
 signals:
     void disconnected();
     void connected();
@@ -27,11 +29,12 @@ private:
     Publisher publisher;
     Subscriber subscriber;
     Connection_Manager manager;
-    static std::string SERVER_ADDRESS;
-    static std::string CLIENT_ID;
     QThread mqttSubscribeThread;
     QThread mqttPublishThread;
     QThread mqttConnectionManagerThread;
+    static std::string SERVER_ADDRESS;
+    static std::string CLIENT_ID;
+    static std::string TOPIC_PREFIX;
 };
 
 #endif

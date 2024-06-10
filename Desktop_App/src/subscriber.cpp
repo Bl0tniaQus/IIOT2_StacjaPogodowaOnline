@@ -1,4 +1,5 @@
 #include "subscriber.h"
+#include "mqtt_controller.h"
 Subscriber::Subscriber()
 {
 
@@ -7,13 +8,19 @@ void Subscriber::setClient(mqtt::async_client* cli)
 {
     client = cli;
 }
+void Subscriber::setController(Mqtt_Controller* ctrl)
+{
+	controller = ctrl;
+}
 
 void Subscriber::subscribe()
 {
 	try {
 		client->start_consuming();
-		client->subscribe(topic, 1)->wait();
-		mqtt::message_ptr msg = mqtt::make_message("M5Stack/IIOT/AH/request/all", "1",1, false);
+		std::string prefix = controller->getTopicPrefix();
+		std::cout<<prefix;
+		client->subscribe(prefix+"+", 1)->wait();
+		mqtt::message_ptr msg = mqtt::make_message(prefix+"request/all", "",1, false);
 		client->publish(msg);
 		while (true) {
 			subscribing = 1;
@@ -21,12 +28,6 @@ void Subscriber::subscribe()
 			if (!msg) {break;}
 			emit sendMqttMessage(checkJson(msg->to_string()));
 		}
-		if (client->is_connected()) {
-			client->unsubscribe(topic)->wait();
-			client->stop_consuming();
-			client->disconnect()->wait();
-		}
-
 	}
 	catch (const mqtt::exception& exc) {
         std::cerr << "\n  " << exc << std::endl;

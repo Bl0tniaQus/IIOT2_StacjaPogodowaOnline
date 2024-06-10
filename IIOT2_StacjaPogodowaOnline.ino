@@ -11,11 +11,12 @@ RTC_DateTypeDef RTCDate;
 const char* ssid = "tajne";
 const char* password = "tajne";
 const char* mqtt_server = "broker.mqttdashboard.com";
+const char* topic_prefix = "M5Stack/IIOT/AH/";
 const char* ntp_server = "pool.ntp.org";
 const long  gmtOffset_sec = 3600; //gmt+1 -> 3600
 const int   daylightOffset_sec = 3600;
-WiFiClient espClient;
 void callback(char* topic, byte* payload, unsigned int length);
+WiFiClient espClient;
 PubSubClient client(mqtt_server, 1883, callback, espClient);
 int menu_stan=1; // Display page
 int pomiary_stan=0;
@@ -201,6 +202,8 @@ void setup() {
 //prognoza, komentarze
 void loop() {
   M5.update();
+  is_connected = WiFi.status() == WL_CONNECTED;
+  if (!onlineMode) {is_connected=false;}
  if (menu_stan!=20&&menu_stan!=21&&menu_stan!=22&&menu_stan!=23&&menu_stan!=24&&menu_stan!=25
  &&menu_stan!=30&&menu_stan!=31&&menu_stan!=32&&menu_stan!=36&&menu_stan!=37&&menu_stan!=49&&menu_stan!=50) {error = false;}
  if (menu_stan!=49) {reset_confirm = false;}
@@ -295,29 +298,24 @@ void loop() {
   client.loop();
 }
 void setupWifi() {
-  
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextSize(1);
-   M5.Lcd.drawString("Trying to connect...",160,0,2);
-  WiFi.mode(WIFI_STA); // Set the mode to WiFi station mode.
-  WiFi.begin(ssid, password); // Start Wifi connection.
-  short tries = 0;
-  while (WiFi.status() != WL_CONNECTED && tries<1000) {
-    delay(10);
-    tries++;    
-  }
-  is_connected = WiFi.status() == WL_CONNECTED;
+    M5.Lcd.drawString("Trying to connect...",160,0,2);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid, password);
+    short tries = 0;
+    while (WiFi.status() != WL_CONNECTED && tries<1000) {
+      delay(10);
+      tries++;}
+    is_connected = WiFi.status() == WL_CONNECTED;
 }
 void mqttConnect()
 {
-  
   int tries = 0;
   while (!client.connected() && tries<1000) {
-      
-    // Próba nawiązania połączenia
     if (client.connect("M5PIR")) {
-    client.subscribe("M5Stack/IIOT/AH/#"); // ponowna subskrypcja tematu
+    client.subscribe((String(topic_prefix)+"#").c_str());
     client.setBufferSize(4096);
     } else {
       delay(10);
@@ -336,23 +334,23 @@ int processPayload(byte* payload, unsigned int length)
 }
 void callback(char* topic, byte* payload, unsigned int length) 
 {
-  if (strcmp(topic, "M5Stack/IIOT/AH/request/all")==0)
+  if (strcmp(topic, (String(topic_prefix)+"request/all").c_str())==0)
     {
       publishAll();
     }
-  if (strcmp(topic, "M5Stack/IIOT/AH/request/temperature")==0)
+  if (strcmp(topic, (String(topic_prefix)+"request/temperature").c_str())==0)
     {
-      client.publish("M5Stack/IIOT/AH/temp", String(getTemperature()).c_str());
+      client.publish((String(topic_prefix)+"temperature").c_str(), String(getTemperature()).c_str());
     }
-  if (strcmp(topic, "M5Stack/IIOT/AH/request/pressure")==0)
+  if (strcmp(topic, (String(topic_prefix)+"request/pressure").c_str())==0)
     {
-      client.publish("M5Stack/IIOT/AH/pressure", String(getPressure()).c_str());
+      client.publish((String(topic_prefix)+"pressure").c_str(), String(getPressure()).c_str());
     }
-   if (strcmp(topic, "M5Stack/IIOT/AH/request/humidity")==0)
+   if (strcmp(topic, (String(topic_prefix)+"request/humidity").c_str())==0)
     {
-      client.publish("M5Stack/IIOT/AH/humidity", String(getHumidity()).c_str());
+      client.publish((String(topic_prefix)+"humidity").c_str(), String(getHumidity()).c_str());
     }
-    if (strcmp(topic, "M5Stack/IIOT/AH/request/datetime")==0)
+    if (strcmp(topic, (String(topic_prefix)+"request/datetime").c_str())==0)
     {
       char datetimebuf[30];
       int hours = getHours(); int minutes = getMinutes();
@@ -371,29 +369,29 @@ void callback(char* topic, byte* payload, unsigned int length)
       strcpy(time_buf,hours_buf);strcat(time_buf,minutes_buf);
       strcpy(date_buf,day_buf);strcat(date_buf,month_buf);strcat(date_buf,year_buf);
       strcpy(datetimebuf,time_buf); strcat(datetimebuf,date_buf);
-      client.publish("M5Stack/IIOT/AH/time", datetimebuf);
+      client.publish((String(topic_prefix)+"datetime").c_str(), datetimebuf);
     }
-    if (strcmp(topic, "M5Stack/IIOT/AH/set/temperature/lb")==0)
+    if (strcmp(topic, (String(topic_prefix)+"set/temperature/lb").c_str())==0)
     {
       setTLB(processPayload(payload,length));
     }
-    if (strcmp(topic, "M5Stack/IIOT/AH/set/temperature/ub")==0)
+    if (strcmp(topic, (String(topic_prefix)+"set/temperature/ub").c_str())==0)
     {
       setTUB(processPayload(payload,length));
     }
-    if (strcmp(topic, "M5Stack/IIOT/AH/set/pressure/lb")==0)
+    if (strcmp(topic, (String(topic_prefix)+"set/pressure/lb").c_str())==0)
     {
       setPLB(processPayload(payload,length));
     }
-    if (strcmp(topic, "M5Stack/IIOT/AH/set/pressure/ub")==0)
+    if (strcmp(topic, (String(topic_prefix)+"set/pressure/ub").c_str())==0)
     {
       setPUB(processPayload(payload,length));
     }
-    if (strcmp(topic, "M5Stack/IIOT/AH/set/humidity/lb")==0)
+    if (strcmp(topic, (String(topic_prefix)+"set/humidity/lb").c_str())==0)
     {
       setHLB(processPayload(payload,length));
     }
-    if (strcmp(topic, "M5Stack/IIOT/AH/set/humidity/ub")==0)
+    if (strcmp(topic, (String(topic_prefix)+"set/humidity/ub").c_str())==0)
     {
       setHUB(processPayload(payload,length));
     }
@@ -405,11 +403,8 @@ void publishAll()
   float temp = getTemperature();
   int pres = getPressure();
   int hum = getHumidity();
-  int hour = getHours(); int minutes = getMinutes(); int seconds = getSeconds();
-  readTemps();
-  readHours();
-  readPressures();
-  readHumidities();
+  readTemps();readHours();
+  readPressures();readHumidities();
   String tempsBuf = "\"temps\":[";
   String hoursBuf = "\"hours\":[";
   String pressuresBuf = "\"pressures\":[";
@@ -424,23 +419,17 @@ void publishAll()
           humsBuf += String(humidities[i]);
           if (i!=n_temps-1)
           {
-              tempsBuf += ",";
-              hoursBuf += ",";
-              pressuresBuf += ",";
-              humsBuf += ",";
+              tempsBuf += ",";hoursBuf += ",";
+              pressuresBuf += ",";humsBuf += ",";
           }
           
       } 
     }
-      tempsBuf += "]";
-      hoursBuf += "]";
-      pressuresBuf += "]";
-      humsBuf += "]";
+  tempsBuf += "]";hoursBuf += "]";pressuresBuf += "]";humsBuf += "]";
   sprintf(jsonStr, "{\"temp_LB\":%d,\"temp\":%.1f,\"temp_UB\":%d,\"pres_LB\":%d,\"pres\":%d,\"pres_UB\":%d,\"hum_LB\":%d,\"hum\":%d,\"hum_UB\":%d,",
   temp_LB,temp,temp_UB,pres_LB,pres,pres_UB,hum_LB,hum,hum_UB);
   String message = String(jsonStr) + hoursBuf + "," + tempsBuf + "," + pressuresBuf + "," + humsBuf + "}";
-  client.publish("M5Stack/IIOT/AH/all", message.c_str());
-
+  client.publish((String(topic_prefix)+"all").c_str(), message.c_str());
 }
 float getTemperature()
 {
