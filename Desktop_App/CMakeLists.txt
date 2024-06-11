@@ -23,10 +23,8 @@ set(desktop_app_SRC
   src/connection_manager.cpp
 )
 
-# Tell CMake to create the helloworld executable
 add_executable(desktop_app ${desktop_app_SRC})
 
-# Use the Widgets module from Qt 5.
 target_link_libraries(desktop_app Qt5::Widgets Qt5::Charts libpaho-mqttpp3.a libpaho-mqtt3as.a nlohmann_json::nlohmann_json OpenSSL::SSL OpenSSL::Crypto)
 
 # Install the executable
