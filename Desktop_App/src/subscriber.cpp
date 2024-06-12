@@ -19,7 +19,7 @@ void Subscriber::subscribe()
 		client->start_consuming();
 		std::string prefix = controller->getTopicPrefix();
 		std::cout<<prefix;
-		client->subscribe(prefix+"+", 1)->wait();
+		client->subscribe(prefix+"all", 1)->wait();
 		mqtt::message_ptr msg = mqtt::make_message(prefix+"request/all", "",1, false);
 		client->publish(msg);
 		while (true) {
